@@ -20,6 +20,7 @@ import {
 } from '../config';
 import type { Entity, World } from '../ecs/World';
 import type { GameContext } from '../game/GameContext';
+import { canUpgrade } from '../systems/InputSystem';
 import { drawCU, drawDefense, drawEnemy, drawProjectile, drawRollback } from './sprites';
 
 type G = CanvasRenderingContext2D;
@@ -47,7 +48,7 @@ export class RenderSystem {
     }
     this.drawBoard(ctx, time);
     this.drawBase(ctx, time);
-    this.drawHover(ctx);
+    this.drawHover(world, ctx);
     this.drawDefenses(world, ctx, time);
     this.drawRollbacks(world, time);
     this.drawEnemies(world, time);
@@ -199,7 +200,7 @@ export class RenderSystem {
     }
   }
 
-  private drawHover(ctx: GameContext): void {
+  private drawHover(world: World, ctx: GameContext): void {
     const hover = ctx.input.hover;
     if (!hover || ctx.status !== 'playing') return;
     const cell = cellAt(hover.x, hover.y);
@@ -211,8 +212,8 @@ export class RenderSystem {
     const laneOk = ctx.lanesAlive[cell.lane];
 
     if (!ctx.selected) {
-      // Hint: a placed defense can be clicked to upgrade it.
-      if (occupant !== null && laneOk) {
+      // Hint: only defenses that can still be upgraded are outlined.
+      if (occupant !== null && laneOk && canUpgrade(world, ctx, cell.lane, cell.col)) {
         g.strokeStyle = 'rgba(253,224,71,0.55)';
         g.lineWidth = 2;
         g.strokeRect(x + 2, y + 2, CELL_W - 4, CELL_H - 4);

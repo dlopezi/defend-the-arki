@@ -1,10 +1,35 @@
-import { cellAt, colX, DEFENSES, inRect, laneY, upgradePanelRect } from '../config';
+import { CELL_H, CELL_W, cellAt, colX, DEFENSES, GRID_X, GRID_Y, inRect, laneY, upgradePanelRect } from '../config';
 import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
 import { createDefense, spawnSparks, spawnText, upgradeDefense } from '../game/factories';
 import { sound, type GameContext, type Point } from '../game/GameContext';
 
 const PICK_RADIUS = 30;
+/** Extra margin around the cell and panel before the panel closes on its own. */
+const PANEL_MARGIN = 24;
+
+/** True if the defense in that cell can still be upgraded. */
+export function canUpgrade(world: World, ctx: GameContext, lane: number, col: number): boolean {
+  const e = ctx.grid[lane][col];
+  const d = e !== null ? world.get(e, 'defense') : undefined;
+  return !!d && d.level < 2 && DEFENSES[d.type].upgrade !== null;
+}
+
+/** The upgrade panel closes when the pointer moves away from the cell and the panel. */
+function closePanelIfAway(ctx: GameContext): void {
+  const insp = ctx.inspect;
+  if (!insp) return;
+  const h = ctx.input.hover;
+  if (!h) {
+    ctx.inspect = null;
+    return;
+  }
+  const m = PANEL_MARGIN;
+  const cell = { x: GRID_X + insp.col * CELL_W - m, y: GRID_Y + insp.lane * CELL_H - m, w: CELL_W + 2 * m, h: CELL_H + 2 * m };
+  const p = upgradePanelRect(insp.lane, insp.col);
+  const panel = { x: p.x - m, y: p.y - m, w: p.w + 2 * m, h: p.h + 2 * m };
+  if (!inRect(cell, h.x, h.y) && !inRect(panel, h.x, h.y)) ctx.inspect = null;
+}
 
 function tryCollect(world: World, ctx: GameContext, click: Point): boolean {
   for (const e of world.query('collectible', 'transform')) {
@@ -69,9 +94,15 @@ export const InputSystem: System = {
       const y = laneY(lane);
       const occupant = ctx.grid[lane][col];
 
-      // 3) No tool selected: clicking a defense opens its upgrade panel.
+      // 3) No tool selected: clicking a defense opens its upgrade panel (only if it can be upgraded).
       if (!ctx.selected) {
-        if (occupant !== null && ctx.lanesAlive[lane]) ctx.inspect = { lane, col };
+        if (occupant === null || !ctx.lanesAlive[lane]) continue;
+        if (canUpgrade(world, ctx, lane, col)) {
+          ctx.inspect = { lane, col };
+        } else {
+          const d = world.get(occupant, 'defense');
+          spawnText(world, x, y - 44, d && d.level >= 2 ? 'Ya es v2' : 'No mejorable', '#94a3b8', 13);
+        }
         continue;
       }
 
@@ -117,5 +148,6 @@ export const InputSystem: System = {
       ctx.selected = null;
     }
     ctx.input.clicks.length = 0;
+    closePanelIfAway(ctx);
   },
 };

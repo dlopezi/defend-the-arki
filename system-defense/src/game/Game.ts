@@ -283,13 +283,19 @@ export class Game {
         this.ctx.inspect = null;
         return;
       }
-      if (e.button === 0 && this.ctx.status === 'playing') this.ctx.input.clicks.push(this.toLogical(e));
+      if (e.button === 0 && this.ctx.status === 'playing') {
+        const pos = this.toLogical(e);
+        this.ctx.input.clicks.push(pos);
+        // Touch has no hover: the tap position works as the pointer position.
+        this.ctx.input.hover = pos;
+      }
     });
     this.canvas.addEventListener('pointermove', (e) => {
       this.ctx.input.hover = this.toLogical(e);
     });
-    this.canvas.addEventListener('pointerleave', () => {
-      this.ctx.input.hover = null;
+    this.canvas.addEventListener('pointerleave', (e) => {
+      // A finger "leaves" right after every tap; only a mouse really leaves the board.
+      if (e.pointerType === 'mouse') this.ctx.input.hover = null;
     });
 
     window.addEventListener('pointerdown', () => this.sfx.unlock());
