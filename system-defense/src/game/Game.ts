@@ -8,6 +8,7 @@ import { Overlays } from '../ui/Overlays';
 import { createRollback } from './factories';
 import { createContext, pushBanner, type GameContext } from './GameContext';
 import { saveResult } from './records';
+import { loadEnabled, loadSeen, saveEnabled, saveSeen } from '../learn/prefs';
 
 /** Max fixed steps per frame, so a slow frame cannot freeze the page. */
 const MAX_STEPS = 12;
@@ -22,6 +23,7 @@ export class Game {
   private readonly overlays: Overlays;
   private readonly sfx = new Sfx();
   private speed = 1;
+  private learnEnabled = loadEnabled();
 
   private last = 0;
   private acc = 0;
@@ -42,6 +44,8 @@ export class Game {
       onStart: (mode) => this.start(mode),
       onResume: () => this.togglePause(),
       onMenu: () => this.toMenu(),
+      getLearnEnabled: () => this.learnEnabled,
+      setLearnEnabled: (on) => this.setLearnEnabled(on),
     });
 
     const shell = document.createElement('main');
@@ -73,6 +77,8 @@ export class Game {
     this.world = new World();
     this.ctx = createContext(mode);
     this.ctx.status = 'playing';
+    this.ctx.learnEnabled = this.learnEnabled;
+    this.ctx.seen = loadSeen();
     this.endShown = false;
     this.acc = 0;
     const spec = MODES[mode];
@@ -93,7 +99,41 @@ export class Game {
     this.overlays.show('menu');
   }
 
+  private setLearnEnabled(on: boolean): void {
+    this.learnEnabled = on;
+    this.ctx.learnEnabled = on;
+    saveEnabled(on);
+    if (!on) this.ctx.conceptQueue.length = 0;
+  }
+
+  /** Pauses the game and shows the next concept card in the queue. */
+  private openNextConcept(): void {
+    const ctx = this.ctx;
+    const id = ctx.conceptQueue.shift();
+    if (!id) return;
+    saveSeen(ctx.seen);
+    ctx.status = 'paused';
+    ctx.selected = null;
+    this.overlays.showConcept(id, {
+      inGame: true,
+      onClose: (disableAll) => {
+        if (this.ctx !== ctx || ctx.status !== 'paused') return;
+        if (disableAll) this.setLearnEnabled(false);
+        if (ctx.conceptQueue.length > 0) {
+          this.openNextConcept();
+          return;
+        }
+        ctx.status = 'playing';
+        this.overlays.show('none');
+      },
+    });
+  }
+
   private togglePause(): void {
+    if (this.overlays.conceptOpen) {
+      this.overlays.closeConcept();
+      return;
+    }
     if (this.ctx.status === 'playing') {
       this.ctx.status = 'paused';
       this.overlays.show('pause');
@@ -139,6 +179,10 @@ export class Game {
       steps++;
     }
     if (steps === MAX_STEPS) this.acc = 0;
+
+    if (this.ctx.status === 'playing' && this.ctx.conceptQueue.length > 0 && !this.overlays.conceptOpen) {
+      this.openNextConcept();
+    }
 
     for (const name of this.ctx.sfx) this.sfx.play(name);
     this.ctx.sfx.length = 0;
@@ -212,6 +256,13 @@ export class Game {
       if (e.repeat) return;
       this.sfx.unlock();
       const key = e.key.toLowerCase();
+      if (this.overlays.conceptOpen) {
+        if (key === 'enter' || key === 'escape') {
+          e.preventDefault();
+          this.overlays.closeConcept();
+        }
+        return;
+      }
       const def = DEFENSE_ORDER.find((d) => DEFENSES[d].hotkey === key);
       if (def) this.select(def);
       else if (key === 'q' || key === 'x') this.select('shovel');

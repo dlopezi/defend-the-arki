@@ -10,6 +10,7 @@ import { GrowthSystem } from './GrowthSystem';
 import { HealthSystem } from './HealthSystem';
 import { InputSystem } from './InputSystem';
 import { LaneRecoverySystem } from './LaneRecoverySystem';
+import { LearningSystem } from './LearningSystem';
 import { MeleeSystem } from './MeleeSystem';
 import { MovementSystem } from './MovementSystem';
 import { RollbackSystem } from './RollbackSystem';
@@ -37,6 +38,7 @@ export const SYSTEMS: System[] = [
   HealthSystem,
   RollbackSystem,
   BreachSystem,
+  LearningSystem,
   EffectSystem,
 ];
 

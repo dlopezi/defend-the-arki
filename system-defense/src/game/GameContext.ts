@@ -1,5 +1,7 @@
 import { COLS, DEFENSE_ORDER, LANES, START_CU, type DefenseType, type EnemyType, type Mode, type Tool } from '../config';
 import type { Entity } from '../ecs/World';
+import type { ConceptId } from '../learn/concepts';
+import type { Incident } from '../learn/postmortem';
 import { buildWave, type WavePlan } from './waves';
 
 export type Status = 'menu' | 'playing' | 'paused' | 'gameover' | 'victory';
@@ -79,6 +81,20 @@ export interface GameContext {
   endReason: string;
   /** Sound events produced by systems this frame. The game drains them. */
   sfx: SoundName[];
+
+  /* ---------- Learning ---------- */
+  /** Show concept cards the first time an element appears. */
+  learnEnabled: boolean;
+  /** Concept cards already shown (persisted by the game). */
+  seen: Set<ConceptId>;
+  /** Concept cards waiting to be shown. The game opens them and pauses. */
+  conceptQueue: ConceptId[];
+  /** Every breach, for the post-mortem. */
+  incidents: Incident[];
+  /** Defenses placed per type, for the retrospective. */
+  placed: Record<DefenseType, number>;
+  /** Defenses destroyed by threats per lane (reset when the lane falls). */
+  laneLosses: number[];
 }
 
 export function emptyGrid(): (Entity | null)[][] {
@@ -87,7 +103,11 @@ export function emptyGrid(): (Entity | null)[][] {
 
 export function createContext(mode: Mode): GameContext {
   const cooldowns = {} as Record<DefenseType, number>;
-  for (const d of DEFENSE_ORDER) cooldowns[d] = 0;
+  const placed = {} as Record<DefenseType, number>;
+  for (const d of DEFENSE_ORDER) {
+    cooldowns[d] = 0;
+    placed[d] = 0;
+  }
   // Strong cards start recharging, as in classic lane defense games.
   cooldowns.redis = 10;
   cooldowns.circuitBreaker = 20;
@@ -126,6 +146,12 @@ export function createContext(mode: Mode): GameContext {
     shake: 0,
     endReason: '',
     sfx: [],
+    learnEnabled: false,
+    seen: new Set(),
+    conceptQueue: [],
+    incidents: [],
+    placed,
+    laneLosses: Array.from({ length: LANES }, () => 0),
   };
 }
 

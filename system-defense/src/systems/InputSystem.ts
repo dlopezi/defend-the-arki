@@ -110,6 +110,7 @@ export const InputSystem: System = {
       ctx.grid[lane][col] = e;
       ctx.cu -= spec.cost;
       ctx.cooldowns[type] = spec.cooldown;
+      ctx.placed[type]++;
       spawnText(world, x, y - 30, `-${spec.cost} CU`, spec.color, 13);
       spawnSparks(world, x, y + 30, spec.color, 6, 80);
       sound(ctx, 'place');

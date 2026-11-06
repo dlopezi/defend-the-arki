@@ -3,6 +3,7 @@ import type { World } from '../ecs/World';
 import type { System } from '../ecs/System';
 import { spawnEffect, spawnSparks } from '../game/factories';
 import { pushBanner, sound, type GameContext } from '../game/GameContext';
+import { diagnose } from '../learn/postmortem';
 
 /** A fallen service loses every entity in its lane. */
 function takeLaneDown(world: World, ctx: GameContext, lane: number): void {
@@ -20,6 +21,7 @@ function takeLaneDown(world: World, ctx: GameContext, lane: number): void {
     if (world.req(e, 'rollback').lane === lane) world.destroy(e);
   }
   ctx.grid[lane].fill(null);
+  ctx.laneLosses[lane] = 0;
   if (ctx.inspect?.lane === lane) ctx.inspect = null;
 }
 
@@ -37,7 +39,11 @@ export const BreachSystem: System = {
       const t = world.req(e, 'transform');
       if (t.x >= BREACH_X) continue;
       const lane = world.req(e, 'lane').lane;
-      const name = ENEMIES[world.req(e, 'enemy').type].name;
+      const type = world.req(e, 'enemy').type;
+      const name = ENEMIES[type].name;
+      if (ctx.lanesAlive[lane]) {
+        ctx.incidents.push({ wave: ctx.wave.number, lane, enemy: type, cause: diagnose(world, ctx, lane, e), time: ctx.time });
+      }
 
       if (ctx.mode === 'monolith') {
         ctx.status = 'gameover';

@@ -34,6 +34,7 @@ export const HealthSystem: System = {
       const cell = world.get(e, 'gridCell');
       if (cell) {
         ctx.grid[cell.lane][cell.col] = null;
+        ctx.laneLosses[cell.lane]++;
         if (ctx.inspect && ctx.inspect.lane === cell.lane && ctx.inspect.col === cell.col) ctx.inspect = null;
         spawnSparks(world, t.x, t.y, '#94a3b8', 12, 160);
         spawnText(world, t.x, t.y - 20, 'caído', '#f87171', 13);

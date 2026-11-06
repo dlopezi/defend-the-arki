@@ -533,3 +533,176 @@ kbd {
     flex-wrap: wrap;
   }
 }
+
+/* ---------- Learning: concept card ---------- */
+.panel.medium {
+  width: min(760px, 100%);
+  text-align: left;
+}
+.panel.medium h2,
+.panel.medium .eyebrow,
+.panel.medium .new-record {
+  text-align: center;
+}
+.concept-card {
+  width: min(620px, 100%);
+  padding: 20px 24px;
+  border-width: 2px;
+}
+.concept-card.is-defense {
+  border-color: #38bdf8;
+}
+.concept-card.is-threat {
+  border-color: #f87171;
+}
+.concept-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.concept-icon {
+  flex: 0 0 auto;
+  background: #070b17;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.concept-kind {
+  font: 700 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.concept-card h2 {
+  margin: 2px 0 0;
+  font-size: 24px;
+}
+.concept-card h3,
+.report h3,
+.report h4 {
+  margin: 12px 0 4px;
+  font: 700 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.concept-card p {
+  margin: 0 0 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tool {
+  padding: 2px 8px;
+  font: 600 12px var(--mono);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.vs.same b {
+  color: var(--ok);
+}
+.vs.diff b {
+  color: var(--bad);
+}
+.read {
+  margin-top: 10px !important;
+  font-size: 13px !important;
+  color: var(--muted) !important;
+}
+.panel a {
+  color: var(--blue);
+}
+.concept-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.menu-check {
+  margin-top: 10px;
+}
+.concept-link {
+  padding: 0;
+  font: 700 12px system-ui, sans-serif;
+  background: none;
+  border: none;
+  border-bottom: 1px dashed currentColor;
+  cursor: pointer;
+}
+.concept-link:hover {
+  filter: brightness(1.25);
+}
+
+/* ---------- Learning: post-mortem / retrospective ---------- */
+.report {
+  margin: 4px 0 8px;
+  padding: 12px 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.report h3 {
+  margin-top: 0;
+  color: var(--text);
+  font-size: 12px;
+}
+.report dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.report dt {
+  font-weight: 700;
+  color: var(--muted);
+}
+.report dd {
+  margin: 0;
+}
+.timeline {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+.timeline span {
+  font-family: var(--mono);
+  color: var(--muted);
+}
+.timeline em {
+  font-style: normal;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .report dl {
+    grid-template-columns: 1fr;
+  }
+  .concept-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Tall panels scroll from the top instead of being cut off. */
+.overlay > .panel {
+  margin: auto;
+}
