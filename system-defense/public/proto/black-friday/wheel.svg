@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-13 -13 26 26" width="104" height="104">
+  <!-- Cart wheel. Center at (0, 0). -->
+  <defs>
+    <radialGradient id="tire" cx="0" cy="0" r="11" gradientUnits="userSpaceOnUse">
+      <stop offset="0.55" stop-color="#3f3f46"/>
+      <stop offset="1" stop-color="#09090b"/>
+    </radialGradient>
+  </defs>
+  <circle cx="0" cy="0" r="11" fill="url(#tire)" stroke="#0a0a0a" stroke-width="2.5"/>
+  <circle cx="0" cy="0" r="7" fill="none" stroke="#52525b" stroke-width="2.5"/>
+  <g stroke="#facc15" stroke-width="2" stroke-linecap="round">
+    <path d="M 0 0 L 7 0"/>
+    <path d="M 0 0 L -3.5 6.06"/>
+    <path d="M 0 0 L -3.5 -6.06"/>
+  </g>
+  <circle cx="0" cy="0" r="2.5" fill="#facc15" stroke="#713f12" stroke-width="0.8"/>
+  <path d="M -8 -6 A 10 10 0 0 1 2 -10" stroke="#a1a1aa" stroke-width="1.2" fill="none" opacity="0.6"/>
+</svg>

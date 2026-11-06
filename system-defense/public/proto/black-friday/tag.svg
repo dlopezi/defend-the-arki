@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-22 -2 44 52" width="176" height="208">
+  <!-- Signature "-70%" tag on a chain. Anchor at (0, 0). -->
+  <defs>
+    <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f87171"/>
+      <stop offset="0.5" stop-color="#dc2626"/>
+      <stop offset="1" stop-color="#7f1d1d"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="#a1a1aa" stroke-width="1.8">
+    <ellipse cx="0" cy="3" rx="3" ry="2"/>
+    <ellipse cx="0" cy="8" rx="2" ry="3"/>
+    <ellipse cx="0" cy="13" rx="3" ry="2"/>
+    <ellipse cx="0" cy="18" rx="2" ry="3"/>
+  </g>
+  <g transform="translate(0 22) rotate(8.6)">
+    <rect x="-17" y="0" width="34" height="24" rx="5" fill="url(#red)" stroke="#0a0a0a" stroke-width="2.5"/>
+    <rect x="-14" y="2" width="28" height="3" rx="1.5" fill="#fecaca" opacity="0.45"/>
+    <circle cx="-11" cy="6" r="2" fill="#0a0a0a"/>
+    <text x="3" y="18" font-family="ui-monospace, Menlo, monospace" font-weight="900" font-size="13" text-anchor="middle"
+          fill="#ffffff" stroke="#450a0a" stroke-width="2.5" paint-order="stroke">-70%</text>
+  </g>
+</svg>

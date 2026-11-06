@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-66 -12 80 66" width="320" height="264">
+  <!-- Claw arm made of shopping bags. Shoulder space: shoulder at (0, 0). -->
+  <defs>
+    <linearGradient id="kraft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eab308"/>
+      <stop offset="0.5" stop-color="#a16207"/>
+      <stop offset="1" stop-color="#713f12"/>
+    </linearGradient>
+    <linearGradient id="plastic" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fafaf9"/>
+      <stop offset="1" stop-color="#a8a29e"/>
+    </linearGradient>
+  </defs>
+  <!-- upper arm: crumpled paper bag -->
+  <path d="M 6 -6 L -16 2 L -22 18 L -2 18 L 10 6 Z" fill="url(#kraft)" stroke="#0a0a0a" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M -6 0 L -12 12 M 2 -2 L -2 12" stroke="#713f12" stroke-width="1.2"/>
+  <path d="M -16 2 L -8 0 L -10 6" stroke="#fde68a" stroke-width="1" fill="none" opacity="0.7"/>
+  <!-- forearm: plastic bag + claw, placed at the elbow (-20, 16) -->
+  <g transform="translate(-20 16)">
+    <path d="M 4 -6 C -8 -10 -24 -2 -28 10 C -22 18 -6 16 2 8 Z" fill="url(#plastic)" stroke="#0a0a0a" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M -6 -4 L -10 6 M -14 -3 L -18 8" stroke="#a8a29e" stroke-width="1.2"/>
+    <path d="M -2 -5 C -8 -7 -14 -5 -18 -2" stroke="#ffffff" stroke-width="1.2" fill="none" opacity="0.8"/>
+    <g fill="none" stroke-linecap="round">
+      <path d="M -24 6 Q -40 4 -37 17" stroke="#0a0a0a" stroke-width="6"/>
+      <path d="M -21 10 Q -40 10 -37 22" stroke="#0a0a0a" stroke-width="6"/>
+      <path d="M -18 14 Q -40 16 -37 27" stroke="#0a0a0a" stroke-width="6"/>
+      <path d="M -24 6 Q -40 4 -37 17" stroke="#facc15" stroke-width="2.5"/>
+      <path d="M -21 10 Q -40 10 -37 22" stroke="#facc15" stroke-width="2.5"/>
+      <path d="M -18 14 Q -40 16 -37 27" stroke="#facc15" stroke-width="2.5"/>
+    </g>
+  </g>
+</svg>
