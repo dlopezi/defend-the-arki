@@ -54,3 +54,11 @@ export function describeRecord(r: LevelRecord): string {
   if (r.bestWave === 0) return 'Récord: sin partidas';
   return `Récord: ola ${r.bestWave} · ${r.bestKills} amenazas`;
 }
+
+export function clearRecords(): void {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
+}

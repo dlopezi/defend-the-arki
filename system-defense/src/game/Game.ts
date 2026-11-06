@@ -24,6 +24,9 @@ export class Game {
   private readonly sfx = new Sfx();
   private speed = 1;
   private learnEnabled = loadEnabled();
+  private readonly shell: HTMLElement;
+  /** True when the player left a running game with the "Menú" button. */
+  private suspended = false;
 
   private last = 0;
   private acc = 0;
@@ -46,17 +49,26 @@ export class Game {
       onMenu: () => this.toMenu(),
       getLearnEnabled: () => this.learnEnabled,
       setLearnEnabled: (on) => this.setLearnEnabled(on),
+      getSuspended: () => (this.suspended ? { mode: this.ctx.mode, wave: this.ctx.wave.number } : null),
+      onContinue: () => this.resumeFromMenu(),
+      getMuted: () => this.sfx.muted,
+      toggleMute: () => this.sfx.toggle(),
+      resetSeen: () => {
+        saveSeen(new Set());
+        this.ctx.seen.clear();
+      },
     });
 
     const shell = document.createElement('main');
-    shell.className = 'shell';
+    this.shell = shell;
     const board = document.createElement('div');
     board.className = 'board';
     this.canvas = document.createElement('canvas');
     this.canvas.style.aspectRatio = `${CANVAS_W} / ${CANVAS_H}`;
     board.append(this.canvas, this.overlays.root);
-    shell.append(this.hud.root, board);
+    shell.append(this.overlays.home, this.hud.root, board, this.overlays.concept);
     root.append(shell);
+    this.setView('home');
 
     const g = this.canvas.getContext('2d');
     if (!g) throw new Error('Canvas 2D not supported');
@@ -89,14 +101,36 @@ export class Game {
       kubernetes: 'Los carriles caídos se reinician solos',
     };
     pushBanner(this.ctx, `NIVEL ${spec.level} · ${spec.name.toUpperCase()}`, spec.color, subs[mode], 3);
+    this.suspended = false;
     this.overlays.show('none');
+    this.setView('game');
   }
 
+  /** Home view shows the menu; game view shows HUD + board. */
+  private setView(view: 'home' | 'game'): void {
+    this.shell.className = `shell view-${view}`;
+  }
+
+  /** "Menú": a running game is paused and kept, so it can be continued. */
   private toMenu(): void {
-    this.ctx.status = 'menu';
-    this.ctx.selected = null;
-    this.ctx.inspect = null;
+    const ctx = this.ctx;
+    const running = ctx.status === 'playing' || ctx.status === 'paused';
+    this.suspended = running;
+    ctx.status = running ? 'paused' : 'menu';
+    ctx.selected = null;
+    ctx.inspect = null;
+    ctx.input.hover = null;
     this.overlays.show('menu');
+    this.setView('home');
+  }
+
+  private resumeFromMenu(): void {
+    if (!this.suspended) return;
+    this.suspended = false;
+    this.ctx.status = 'playing';
+    this.acc = 0;
+    this.overlays.show('none');
+    this.setView('game');
   }
 
   private setLearnEnabled(on: boolean): void {
@@ -261,6 +295,10 @@ export class Game {
           e.preventDefault();
           this.overlays.closeConcept();
         }
+        return;
+      }
+      if (this.shell.classList.contains('view-home')) {
+        if (key === 'escape') this.overlays.homeBack();
         return;
       }
       const def = DEFENSE_ORDER.find((d) => DEFENSES[d].hotkey === key);

@@ -1,9 +1,9 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, SERVICE_NAMES, TOTAL_WAVES, type Mode } from '../config';
+import { MODE_ORDER, MODES, SERVICE_NAMES, TOTAL_WAVES, type Mode } from '../config';
 import type { GameContext } from '../game/GameContext';
-import { describeRecord, loadRecords } from '../game/records';
 import { CONCEPTS, type ConceptId, type Link } from '../learn/concepts';
 import { CAUSES, describeIncident, levelLessonLoss, levelLessonWin, topDefenses } from '../learn/postmortem';
-import { drawDefense, drawEnemy, drawRollback } from '../render/sprites';
+import { HomeMenu } from './HomeMenu';
+import { paintConceptIcon } from './icons';
 
 export interface OverlayCallbacks {
   onStart(mode: Mode): void;
@@ -11,6 +11,12 @@ export interface OverlayCallbacks {
   onMenu(): void;
   getLearnEnabled(): boolean;
   setLearnEnabled(on: boolean): void;
+  /** Game left paused by the "Menú" button, if any. */
+  getSuspended(): { mode: Mode; wave: number } | null;
+  onContinue(): void;
+  getMuted(): boolean;
+  toggleMute(): void;
+  resetSeen(): void;
 }
 
 type Screen = 'menu' | 'pause' | 'end' | 'concept' | 'none';
@@ -29,43 +35,19 @@ function link(l: Link): string {
   return `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${esc(l.label)} ↗</a>`;
 }
 
-function isDefense(id: ConceptId): id is (typeof DEFENSE_ORDER)[number] {
-  return (DEFENSE_ORDER as string[]).includes(id);
-}
-
-/** Draws the element's sprite into a small canvas for the concept card. */
-function paintConceptIcon(canvas: HTMLCanvasElement, id: ConceptId): void {
-  const size = 84;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = size * dpr;
-  canvas.height = size * dpr;
-  canvas.style.width = `${size}px`;
-  canvas.style.height = `${size}px`;
-  const g = canvas.getContext('2d');
-  if (!g) return;
-  g.scale(dpr, dpr);
-  g.translate(size / 2, size / 2);
-  if (id === 'rollback') {
-    g.scale(1.8, 1.8);
-    drawRollback(g, 0, 0, false, 0);
-  } else if (isDefense(id)) {
-    g.scale(0.85, 0.85);
-    drawDefense(g, id, 0, 0, 1.2);
-  } else {
-    const spec = ENEMIES[id];
-    const k = Math.min(1, 70 / Math.max(spec.width, spec.height));
-    g.scale(k, k);
-    drawEnemy(g, id, 0, 0, spec.width, spec.height, 0, { flash: 0, slowed: false, state: 'attack', jumpHeight: 0 });
-  }
-}
-
-/** Menu, pause, concept card and end screens, drawn as DOM over the canvas. */
+/**
+ * Screens.
+ * - `home`: start view, shown instead of the HUD and board.
+ * - `root`: pause and end screens, drawn over the board.
+ * - `concept`: concept card, fixed over the whole page (works in both views).
+ */
 export class Overlays {
   readonly root: HTMLElement;
-  private readonly menu: HTMLElement;
+  readonly home: HTMLElement;
+  readonly concept: HTMLElement;
+  private readonly homeMenu: HomeMenu;
   private readonly pause: HTMLElement;
   private readonly end: HTMLElement;
-  private readonly concept: HTMLElement;
   private readonly cb: OverlayCallbacks;
   private conceptClose: (() => void) | null = null;
 
@@ -74,8 +56,19 @@ export class Overlays {
     this.root = document.createElement('div');
     this.root.className = 'overlays';
 
-    this.menu = document.createElement('section');
-    this.menu.className = 'overlay menu';
+    this.homeMenu = new HomeMenu({
+      onStart: (m) => cb.onStart(m),
+      onContinue: () => cb.onContinue(),
+      getSuspended: () => cb.getSuspended(),
+      getLearnEnabled: () => cb.getLearnEnabled(),
+      setLearnEnabled: (on) => cb.setLearnEnabled(on),
+      getMuted: () => cb.getMuted(),
+      toggleMute: () => cb.toggleMute(),
+      resetSeen: () => cb.resetSeen(),
+      // The card opens over the home view; closing it just hides the card.
+      openConcept: (id) => this.showConcept(id, { inGame: false, onClose: () => undefined }),
+    });
+    this.home = this.homeMenu.el;
 
     this.pause = document.createElement('section');
     this.pause.className = 'overlay pause';
@@ -89,8 +82,13 @@ export class Overlays {
     this.concept = document.createElement('section');
     this.concept.className = 'overlay concept';
 
-    this.root.append(this.menu, this.pause, this.end, this.concept);
+    this.root.append(this.pause, this.end);
     this.show('menu');
+  }
+
+  /** Esc on the home view: back to the main screen. */
+  homeBack(): void {
+    this.homeMenu.back();
   }
 
   get conceptOpen(): boolean {
@@ -98,8 +96,8 @@ export class Overlays {
   }
 
   show(which: Screen): void {
-    if (which === 'menu') this.renderMenu();
-    this.menu.classList.toggle('visible', which === 'menu');
+    if (which === 'menu') this.homeMenu.show('main');
+    this.home.classList.toggle('visible', which === 'menu');
     this.pause.classList.toggle('visible', which === 'pause');
     this.end.classList.toggle('visible', which === 'end');
     this.concept.classList.toggle('visible', which === 'concept');
@@ -146,7 +144,6 @@ export class Overlays {
       opts.onClose(disable);
     };
     this.concept.querySelector('[data-act="ok"]')?.addEventListener('click', close);
-    this.menu.classList.remove('visible');
     this.pause.classList.remove('visible');
     this.end.classList.remove('visible');
     this.concept.classList.add('visible');
@@ -157,66 +154,6 @@ export class Overlays {
   /** Closes the open concept card (Enter / Escape). */
   closeConcept(): void {
     this.conceptClose?.();
-  }
-
-  /* ---------- Menu ---------- */
-
-  private renderMenu(): void {
-    const records = loadRecords();
-    const levels = MODE_ORDER.map((m) => {
-      const spec = MODES[m];
-      return `<button class="level" data-mode="${m}" type="button" style="--accent:${spec.color}">
-          <span class="level-tag">Nivel ${spec.level}</span>
-          <strong>${spec.name}</strong>
-          <span>${spec.rule}</span>
-          <span class="record">${describeRecord(records[m])}</span>
-        </button>`;
-    }).join('');
-    const conceptLink = (id: ConceptId, label: string, color: string) =>
-      `<button class="concept-link" data-concept="${id}" type="button" style="color:${color}" title="Abrir la ficha de concepto">${esc(label)}</button>`;
-    this.menu.innerHTML = `
-      <div class="panel">
-        <p class="eyebrow">Tower defense de arquitectura de sistemas</p>
-        <h1>System<span>Defense</span></h1>
-        <p class="lead">El tráfico hostil llega desde Internet (derecha). Coloca defensas en la cuadrícula de 5 carriles × 9 columnas y protege tu base (izquierda). Haz clic en una defensa colocada para mejorarla a v2.</p>
-        <div class="levels">${levels}</div>
-        <details class="guide">
-          <summary>Guía: defensas y amenazas (pulsa un nombre para ver su ficha)</summary>
-          <div class="legend">
-            <div>
-              <h3>Defensas</h3>
-              <ul>${DEFENSE_ORDER.map((d) => `<li>${conceptLink(d, `${DEFENSES[d].hotkey} · ${DEFENSES[d].name}`, DEFENSES[d].color)} <em>${DEFENSES[d].cost} CU</em> — ${DEFENSES[d].desc}</li>`).join('')}
-              <li>${conceptLink('rollback', '↺ Rollback', '#22d3ee')} <em>gratis</em> — Niveles 2 y 3: uno por carril, limpia el carril una vez</li></ul>
-            </div>
-            <div>
-              <h3>Amenazas</h3>
-              <ul>${ENEMY_ORDER.map((e) => `<li>${conceptLink(e === 'botlet' ? 'botnet' : e, ENEMIES[e].name, ENEMIES[e].color)} — ${ENEMIES[e].desc}</li>`).join('')}</ul>
-            </div>
-          </div>
-        </details>
-        <label class="check menu-check"><input type="checkbox" data-act="learn" ${this.cb.getLearnEnabled() ? 'checked' : ''}> Mostrar fichas de concepto durante la partida</label>
-        <p class="controls">Teclas <kbd>1</kbd>–<kbd>8</kbd> defensas · clic en <span class="cu-inline">⬢ CU</span> para recoger · <kbd>Q</kbd> desmantelar · <kbd>Esc</kbd>/clic derecho cancelar · <kbd>P</kbd> pausa · <kbd>F</kbd> ×2 · <kbd>M</kbd> sonido</p>
-      </div>`;
-    this.menu.querySelectorAll<HTMLButtonElement>('.level').forEach((b) => {
-      b.addEventListener('click', () => this.cb.onStart(b.dataset.mode as Mode));
-    });
-    this.menu.querySelectorAll<HTMLButtonElement>('.concept-link').forEach((b) => {
-      b.addEventListener('click', () => {
-        const details = this.menu.querySelector('details');
-        const wasOpen = details?.open ?? false;
-        this.showConcept(b.dataset.concept as ConceptId, {
-          inGame: false,
-          onClose: () => {
-            this.show('menu');
-            const d = this.menu.querySelector('details');
-            if (d) d.open = wasOpen;
-          },
-        });
-      });
-    });
-    this.menu.querySelector<HTMLInputElement>('[data-act="learn"]')?.addEventListener('change', (e) => {
-      this.cb.setLearnEnabled((e.target as HTMLInputElement).checked);
-    });
   }
 
   /* ---------- End screen: post-mortem or retrospective ---------- */
