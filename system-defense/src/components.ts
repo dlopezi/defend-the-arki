@@ -15,7 +15,7 @@ export interface Health {
   flash: number;
 }
 
-/** Lane an entity moves in (enemies, projectiles). */
+/** Lane an entity moves in (enemies). */
 export interface Lane {
   lane: number;
 }
@@ -28,9 +28,11 @@ export interface GridCell {
 
 export interface Defense {
   type: DefenseType;
+  /** 1 = base, 2 = upgraded (v2). */
+  level: number;
 }
 
-export type EnemyState = 'walk' | 'attack' | 'jump';
+export type EnemyState = 'walk' | 'attack' | 'jump' | 'held';
 
 export interface Enemy {
   type: EnemyType;
@@ -55,6 +57,10 @@ export interface Shooter {
   timer: number;
   damage: number;
   slow: boolean;
+  /** Packets per volley (v2 shooters fire 2). */
+  shots: number;
+  /** Fires into its own lane and both neighbors (CDN Edge). */
+  spread: boolean;
 }
 
 export interface Projectile {
@@ -78,9 +84,38 @@ export interface Fuse {
   total: number;
 }
 
+/** Captures one passing threat for a while (Kafka). */
+export interface Trap {
+  hold: number;
+  recharge: number;
+  /** Recharge time left. 0 = ready. */
+  timer: number;
+  captured: Entity | null;
+}
+
 export interface Slowed {
   timer: number;
   factor: number;
+}
+
+/** Threat stuck in a Kafka queue. */
+export interface Held {
+  timer: number;
+  total: number;
+}
+
+/** Defense locked by Ransomware: it does nothing until the timer ends. */
+export interface Encrypted {
+  timer: number;
+}
+
+/** Threat that grows stronger over time (Memory Leak). */
+export interface Grows {
+  rate: number;
+  cap: number;
+  baseW: number;
+  baseH: number;
+  startMax: number;
 }
 
 /** Jumps over the first defense it meets (Zero-Day Exploit). */
@@ -90,6 +125,12 @@ export interface Jumper {
   duration: number;
   fromX: number;
   toX: number;
+}
+
+/** One-time lane sweeper that waits next to the base. */
+export interface Rollback {
+  lane: number;
+  running: boolean;
 }
 
 export interface Collectible {
@@ -131,8 +172,13 @@ export interface ComponentMap {
   projectile: Projectile;
   generator: Generator;
   fuse: Fuse;
+  trap: Trap;
   slowed: Slowed;
+  held: Held;
+  encrypted: Encrypted;
+  grows: Grows;
   jumper: Jumper;
+  rollback: Rollback;
   collectible: Collectible;
   effect: Effect;
 }

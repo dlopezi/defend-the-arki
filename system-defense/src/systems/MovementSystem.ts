@@ -1,8 +1,10 @@
-import { CANVAS_W, ZERO_DAY_SPEED_AFTER_JUMP } from '../config';
+import { CANVAS_W, laneY, ZERO_DAY_SPEED_AFTER_JUMP } from '../config';
 import type { System } from '../ecs/System';
 import { spawnSparks } from '../game/factories';
 
-/** Moves enemies (walk / jump) and projectiles. */
+const LANE_SHIFT_SPEED = 420;
+
+/** Moves enemies (walk / jump) and projectiles. Held enemies do not move. */
 export const MovementSystem: System = {
   name: 'movement',
   update(world, _ctx, dt) {
@@ -30,6 +32,12 @@ export const MovementSystem: System = {
       const p = world.req(e, 'projectile');
       const t = world.req(e, 'transform');
       t.x += p.speed * dt;
+      // CDN packets drift into their target lane.
+      const ty = laneY(p.lane) - 6;
+      if (t.y !== ty) {
+        const step = LANE_SHIFT_SPEED * dt;
+        t.y = Math.abs(ty - t.y) <= step ? ty : t.y + Math.sign(ty - t.y) * step;
+      }
       if (t.x > CANVAS_W + 30) world.destroy(e);
     }
   },

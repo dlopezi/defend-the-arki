@@ -1,11 +1,19 @@
-import { DEFENSE_ORDER, DEFENSES, LANES, SERVICE_NAMES, TOTAL_WAVES, type Tool } from '../config';
+import { DEFENSE_ORDER, DEFENSES, ENEMIES, LANES, MODES, SERVICE_NAMES, TOTAL_WAVES, type DefenseType, type EnemyType, type Tool } from '../config';
 import type { GameContext } from '../game/GameContext';
+import { countByType } from '../game/waves';
 import { drawDefense } from '../render/sprites';
 
 export interface HudCallbacks {
   onSelect(tool: Tool): void;
   onPause(): void;
+  onSpeed(): void;
+  onMute(): void;
   onMenu(): void;
+}
+
+export interface HudExtras {
+  speed: number;
+  muted: boolean;
 }
 
 interface CardRefs {
@@ -20,20 +28,38 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''):
   return n;
 }
 
-/** DOM HUD: Compute Units, defense cards, wave and architecture status. */
+function button(cls: string, text: string, title: string, onClick: () => void): HTMLButtonElement {
+  const b = el('button', cls, text);
+  b.type = 'button';
+  b.title = title;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+/**
+ * DOM HUD.
+ * Row 1: Compute Units, defense cards, action buttons.
+ * Row 2 (strip): level, wave progress, wave preview, lane status.
+ */
 export class Hud {
   readonly root: HTMLElement;
   private readonly cuValue: HTMLElement;
   private readonly modeEl: HTMLElement;
   private readonly waveEl: HTMLElement;
   private readonly waveBar: HTMLElement;
+  private readonly previewLabel: HTMLElement;
+  private readonly previewList: HTMLElement;
   private readonly lanesEl: HTMLElement;
   private readonly pauseBtn: HTMLButtonElement;
+  private readonly speedBtn: HTMLButtonElement;
+  private readonly muteBtn: HTMLButtonElement;
   private readonly cards = new Map<Tool, CardRefs>();
   private lastCu = -1;
+  private lastPreview = '';
 
   constructor(cb: HudCallbacks) {
-    this.root = el('header', 'hud');
+    this.root = el('div', 'hud-wrap');
+    const hud = el('header', 'hud');
 
     const cu = el('div', 'cu-box');
     cu.title = 'Compute Units: haz clic en los hexágonos CU para recogerlos';
@@ -46,56 +72,52 @@ export class Hud {
     const cards = el('div', 'cards');
     for (const type of DEFENSE_ORDER) {
       const spec = DEFENSES[type];
-      const card = el('button', 'card');
-      card.type = 'button';
-      card.title = `${spec.name} — ${spec.desc} (tecla ${spec.hotkey})`;
+      const card = button('card', '', `${spec.name} — ${spec.desc} (tecla ${spec.hotkey})`, () => cb.onSelect(type));
       card.style.setProperty('--accent', spec.color);
       const icon = el('canvas', 'card-icon');
       this.paintIcon(icon, type);
       const cd = el('span', 'card-cd');
       card.append(el('span', 'card-key', spec.hotkey), icon, el('span', 'card-name', spec.short), el('span', 'card-cost', `${spec.cost}`), cd);
-      card.addEventListener('click', () => cb.onSelect(type));
       cards.append(card);
       this.cards.set(type, { el: card, cd });
     }
-    const shovel = el('button', 'card card-shovel');
-    shovel.type = 'button';
-    shovel.title = 'Desmantelar una defensa (tecla Q)';
+    const shovel = button('card card-shovel', '', 'Desmantelar una defensa (tecla Q)', () => cb.onSelect('shovel'));
     shovel.style.setProperty('--accent', '#94a3b8');
-    const sIcon = el('span', 'shovel-icon', '✕');
-    shovel.append(el('span', 'card-key', 'Q'), sIcon, el('span', 'card-name', 'Desmantelar'), el('span', 'card-cost', '—'), el('span', 'card-cd'));
-    shovel.addEventListener('click', () => cb.onSelect('shovel'));
+    const shovelCd = el('span', 'card-cd');
+    shovel.append(el('span', 'card-key', 'Q'), el('span', 'shovel-icon', '✕'), el('span', 'card-name', 'Desmantelar'), el('span', 'card-cost', '—'), shovelCd);
     cards.append(shovel);
-    this.cards.set('shovel', { el: shovel, cd: shovel.lastElementChild as HTMLElement });
+    this.cards.set('shovel', { el: shovel, cd: shovelCd });
 
-    const status = el('div', 'status-box');
+    const actions = el('div', 'actions');
+    this.pauseBtn = button('btn-small', 'Pausa', 'Pausa (P)', () => cb.onPause());
+    this.speedBtn = button('btn-small', '×2', 'Velocidad doble (F)', () => cb.onSpeed());
+    this.muteBtn = button('btn-small', '🔊', 'Sonido (M)', () => cb.onMute());
+    actions.append(this.pauseBtn, this.speedBtn, this.muteBtn, button('btn-small', 'Menú', 'Volver al menú', () => cb.onMenu()));
+
+    hud.append(cu, cards, actions);
+
+    const strip = el('div', 'strip');
     this.modeEl = el('div', 'mode');
     this.waveEl = el('div', 'wave');
     const bar = el('div', 'wave-track');
     this.waveBar = el('div', 'wave-fill');
     bar.append(this.waveBar);
+    const preview = el('div', 'preview');
+    this.previewLabel = el('span', 'preview-label');
+    this.previewList = el('span', 'preview-list');
+    preview.append(this.previewLabel, this.previewList);
     this.lanesEl = el('div', 'lanes');
     for (let i = 0; i < LANES; i++) {
       const dot = el('span', 'lane-dot');
       dot.title = SERVICE_NAMES[i];
       this.lanesEl.append(dot);
     }
-    status.append(this.modeEl, this.waveEl, bar, this.lanesEl);
+    strip.append(this.modeEl, this.waveEl, bar, preview, this.lanesEl);
 
-    const actions = el('div', 'actions');
-    this.pauseBtn = el('button', 'btn-small', 'Pausa');
-    this.pauseBtn.type = 'button';
-    this.pauseBtn.title = 'Pausa (P)';
-    this.pauseBtn.addEventListener('click', () => cb.onPause());
-    const menu = el('button', 'btn-small', 'Menú');
-    menu.type = 'button';
-    menu.addEventListener('click', () => cb.onMenu());
-    actions.append(this.pauseBtn, menu);
-
-    this.root.append(cu, cards, status, actions);
+    this.root.append(hud, strip);
   }
 
-  /** Small red pulse on a card that cannot be used now. */
+  /** Small red shake on a card that cannot be used now. */
   deny(tool: Tool): void {
     const c = this.cards.get(tool);
     if (!c) return;
@@ -104,7 +126,7 @@ export class Hud {
     c.el.classList.add('denied');
   }
 
-  update(ctx: GameContext): void {
+  update(ctx: GameContext, extras: HudExtras): void {
     const cu = Math.floor(ctx.cu);
     if (cu !== this.lastCu) {
       this.cuValue.textContent = String(cu);
@@ -123,14 +145,17 @@ export class Hud {
     }
     this.cards.get('shovel')?.el.classList.toggle('selected', ctx.selected === 'shovel');
 
-    this.modeEl.textContent = ctx.mode === 'monolith' ? 'Nivel 1 · Monolito' : 'Nivel 2 · Microservicios';
-    this.modeEl.dataset.mode = ctx.mode;
+    const mode = MODES[ctx.mode];
+    this.modeEl.textContent = `Nivel ${mode.level} · ${mode.name}`;
+    this.modeEl.style.color = mode.color;
 
     const w = ctx.wave;
     let text: string;
     let progress: number;
+    let previewQueue = w.next.queue;
+    let previewLabel = 'Próxima ola:';
     if (w.phase === 'prep') {
-      text = `Primera ola en ${Math.ceil(w.timer)} s`;
+      text = `Ola 1/${TOTAL_WAVES} en ${Math.ceil(w.timer)} s`;
       progress = 0;
     } else if (w.phase === 'break') {
       text = `Ola ${w.number + 1}/${TOTAL_WAVES} en ${Math.ceil(w.timer)} s`;
@@ -138,18 +163,43 @@ export class Hud {
     } else {
       text = `Ola ${w.number}/${TOTAL_WAVES}`;
       progress = (w.number - 1 + w.spawned / Math.max(1, w.total)) / TOTAL_WAVES;
+      previewQueue = w.queue.slice(w.spawned);
+      previewLabel = previewQueue.length > 0 ? 'Por llegar:' : 'Ola en curso';
     }
     this.waveEl.textContent = text;
     this.waveBar.style.width = `${Math.min(100, progress * 100)}%`;
+    this.renderPreview(previewLabel, previewQueue);
 
-    this.lanesEl.style.display = ctx.mode === 'microservices' ? '' : 'none';
-    this.lanesEl.querySelectorAll<HTMLElement>('.lane-dot').forEach((d, i) => d.classList.toggle('down', !ctx.lanesAlive[i]));
+    const showLanes = ctx.mode !== 'monolith';
+    this.lanesEl.style.display = showLanes ? '' : 'none';
+    this.lanesEl.querySelectorAll<HTMLElement>('.lane-dot').forEach((d, i) => {
+      const restarting = !ctx.lanesAlive[i] && ctx.laneRestart[i] > 0;
+      d.classList.toggle('down', !ctx.lanesAlive[i] && !restarting);
+      d.classList.toggle('restarting', restarting);
+    });
 
     this.pauseBtn.textContent = ctx.status === 'paused' ? 'Seguir' : 'Pausa';
+    this.speedBtn.classList.toggle('active', extras.speed > 1);
+    this.muteBtn.textContent = extras.muted ? '🔇' : '🔊';
   }
 
-  private paintIcon(canvas: HTMLCanvasElement, type: (typeof DEFENSE_ORDER)[number]): void {
-    const size = 52;
+  private renderPreview(label: string, queue: readonly EnemyType[]): void {
+    const key = label + queue.join(',');
+    if (key === this.lastPreview) return;
+    this.lastPreview = key;
+    this.previewLabel.textContent = label;
+    this.previewList.replaceChildren();
+    for (const { type, count } of countByType(queue)) {
+      const spec = ENEMIES[type];
+      const chip = el('span', 'chip', `${count}× ${spec.tag}`);
+      chip.style.setProperty('--chip', spec.color);
+      chip.title = `${spec.name}: ${spec.desc}`;
+      this.previewList.append(chip);
+    }
+  }
+
+  private paintIcon(canvas: HTMLCanvasElement, type: DefenseType): void {
+    const size = 44;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = size * dpr;
     canvas.height = size * dpr;
@@ -159,7 +209,7 @@ export class Hud {
     if (!g) return;
     g.scale(dpr, dpr);
     g.translate(size / 2, size / 2 - 2);
-    g.scale(0.6, 0.6);
+    g.scale(0.5, 0.5);
     drawDefense(g, type, 0, 0, 1.2);
   }
 }

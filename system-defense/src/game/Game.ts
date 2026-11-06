@@ -1,12 +1,18 @@
-import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, type Mode, type Tool } from '../config';
+import { Sfx } from '../audio/Sfx';
+import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, type Mode, type Tool } from '../config';
 import { World } from '../ecs/World';
 import { RenderSystem } from '../render/RenderSystem';
 import { EffectSystem, SYSTEMS } from '../systems';
 import { Hud } from '../ui/Hud';
 import { Overlays } from '../ui/Overlays';
+import { createRollback } from './factories';
 import { createContext, pushBanner, type GameContext } from './GameContext';
+import { saveResult } from './records';
 
-/** Owns the ECS world, the fixed-step game loop (60 Hz) and the input bridge. */
+/** Max fixed steps per frame, so a slow frame cannot freeze the page. */
+const MAX_STEPS = 12;
+
+/** Owns the ECS world, the fixed-step game loop (60 Hz), sound and the input bridge. */
 export class Game {
   private world = new World();
   private ctx: GameContext = createContext('monolith');
@@ -14,6 +20,8 @@ export class Game {
   private readonly renderer: RenderSystem;
   private readonly hud: Hud;
   private readonly overlays: Overlays;
+  private readonly sfx = new Sfx();
+  private speed = 1;
 
   private last = 0;
   private acc = 0;
@@ -26,6 +34,8 @@ export class Game {
     this.hud = new Hud({
       onSelect: (tool) => this.select(tool),
       onPause: () => this.togglePause(),
+      onSpeed: () => this.toggleSpeed(),
+      onMute: () => this.sfx.toggle(),
       onMenu: () => this.toMenu(),
     });
     this.overlays = new Overlays({
@@ -39,6 +49,7 @@ export class Game {
     const board = document.createElement('div');
     board.className = 'board';
     this.canvas = document.createElement('canvas');
+    this.canvas.style.aspectRatio = `${CANVAS_W} / ${CANVAS_H}`;
     board.append(this.canvas, this.overlays.root);
     shell.append(this.hud.root, board);
     root.append(shell);
@@ -57,25 +68,28 @@ export class Game {
   }
 
   start(mode: Mode): void {
+    this.sfx.unlock();
     this.world.clear();
     this.world = new World();
     this.ctx = createContext(mode);
     this.ctx.status = 'playing';
     this.endShown = false;
     this.acc = 0;
-    pushBanner(
-      this.ctx,
-      mode === 'monolith' ? 'NIVEL 1 · MONOLITO' : 'NIVEL 2 · MICROSERVICIOS',
-      mode === 'monolith' ? '#38bdf8' : '#34d399',
-      mode === 'monolith' ? 'Un solo fallo en cualquier carril tumba todo el sistema' : 'Cada carril es un servicio independiente',
-      3,
-    );
+    const spec = MODES[mode];
+    if (spec.rollback) for (let lane = 0; lane < LANES; lane++) createRollback(this.world, lane);
+    const subs: Record<Mode, string> = {
+      monolith: 'Un solo fallo en cualquier carril tumba todo el sistema',
+      microservices: 'Cada carril es un servicio independiente',
+      kubernetes: 'Los carriles caídos se reinician solos',
+    };
+    pushBanner(this.ctx, `NIVEL ${spec.level} · ${spec.name.toUpperCase()}`, spec.color, subs[mode], 3);
     this.overlays.show('none');
   }
 
   private toMenu(): void {
     this.ctx.status = 'menu';
     this.ctx.selected = null;
+    this.ctx.inspect = null;
     this.overlays.show('menu');
   }
 
@@ -89,15 +103,21 @@ export class Game {
     }
   }
 
+  private toggleSpeed(): void {
+    this.speed = this.speed === 1 ? 2 : 1;
+  }
+
   private select(tool: Tool): void {
     const ctx = this.ctx;
     if (ctx.status !== 'playing') return;
+    ctx.inspect = null;
     if (ctx.selected === tool) {
       ctx.selected = null;
       return;
     }
     if (tool !== 'shovel' && (ctx.cu < DEFENSES[tool].cost || ctx.cooldowns[tool] > 0)) {
       this.hud.deny(tool);
+      this.sfx.play('deny');
       return;
     }
     ctx.selected = tool;
@@ -110,14 +130,21 @@ export class Game {
     this.last = now;
 
     // Fixed timestep: logic always advances in 1/60 s steps, independent of display rate.
-    this.acc += real;
-    while (this.acc >= FIXED_DT) {
+    // ×2 speed runs two logic steps per 1/60 s of real time.
+    this.acc += real * this.speed;
+    let steps = 0;
+    while (this.acc >= FIXED_DT && steps < MAX_STEPS) {
       this.step(FIXED_DT);
       this.acc -= FIXED_DT;
+      steps++;
     }
+    if (steps === MAX_STEPS) this.acc = 0;
+
+    for (const name of this.ctx.sfx) this.sfx.play(name);
+    this.ctx.sfx.length = 0;
 
     this.renderer.render(this.world, this.ctx, now / 1000, this.fps);
-    this.hud.update(this.ctx);
+    this.hud.update(this.ctx, { speed: this.speed, muted: this.sfx.muted });
 
     this.fpsFrames++;
     this.fpsTime += real;
@@ -147,8 +174,10 @@ export class Game {
     if ((ctx.status === 'gameover' || ctx.status === 'victory') && !this.endShown) {
       this.endShown = true;
       ctx.selected = null;
+      ctx.inspect = null;
+      const newRecord = saveResult(ctx.mode, ctx.wave.number, ctx.status === 'victory', ctx.kills);
       window.setTimeout(() => {
-        if (this.ctx === ctx) this.overlays.showEnd(ctx);
+        if (this.ctx === ctx) this.overlays.showEnd(ctx, newRecord);
       }, 900);
     }
   }
@@ -163,8 +192,10 @@ export class Game {
   private bindInput(): void {
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this.canvas.addEventListener('pointerdown', (e) => {
+      this.sfx.unlock();
       if (e.button === 2) {
         this.ctx.selected = null;
+        this.ctx.inspect = null;
         return;
       }
       if (e.button === 0 && this.ctx.status === 'playing') this.ctx.input.clicks.push(this.toLogical(e));
@@ -176,14 +207,20 @@ export class Game {
       this.ctx.input.hover = null;
     });
 
+    window.addEventListener('pointerdown', () => this.sfx.unlock());
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
+      this.sfx.unlock();
       const key = e.key.toLowerCase();
       const def = DEFENSE_ORDER.find((d) => DEFENSES[d].hotkey === key);
       if (def) this.select(def);
       else if (key === 'q' || key === 'x') this.select('shovel');
-      else if (key === 'escape') this.ctx.selected = null;
-      else if (key === 'p' || key === ' ') {
+      else if (key === 'f') this.toggleSpeed();
+      else if (key === 'm') this.sfx.toggle();
+      else if (key === 'escape') {
+        this.ctx.selected = null;
+        this.ctx.inspect = null;
+      } else if (key === 'p' || key === ' ') {
         e.preventDefault();
         this.togglePause();
       }

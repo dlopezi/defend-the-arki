@@ -22,7 +22,7 @@ export const EconomySystem: System = {
 
     // Worker Nodes generate CU.
     for (const e of world.query('generator', 'transform', 'gridCell')) {
-      if (!ctx.lanesAlive[world.req(e, 'gridCell').lane]) continue;
+      if (!ctx.lanesAlive[world.req(e, 'gridCell').lane] || world.has(e, 'encrypted')) continue;
       const g = world.req(e, 'generator');
       g.timer -= dt;
       if (g.timer <= 0) {

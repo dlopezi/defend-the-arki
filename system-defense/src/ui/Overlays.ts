@@ -1,5 +1,6 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, TOTAL_WAVES, type Mode } from '../config';
+import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, TOTAL_WAVES, type Mode } from '../config';
 import type { GameContext } from '../game/GameContext';
+import { describeRecord, loadRecords } from '../game/records';
 
 export interface OverlayCallbacks {
   onStart(mode: Mode): void;
@@ -28,38 +29,6 @@ export class Overlays {
 
     this.menu = document.createElement('section');
     this.menu.className = 'overlay menu';
-    this.menu.innerHTML = `
-      <div class="panel">
-        <p class="eyebrow">Tower defense de arquitectura de sistemas</p>
-        <h1>System<span>Defense</span></h1>
-        <p class="lead">El tráfico hostil llega desde Internet (derecha). Coloca defensas en la cuadrícula de 5 carriles × 9 columnas y protege tu base (izquierda).</p>
-        <div class="levels">
-          <button class="level" data-mode="monolith" type="button">
-            <span class="level-tag">Nivel 1</span>
-            <strong>Arquitectura Monolítica</strong>
-            <span>Una sola base. Si una amenaza cruza el límite en <b>cualquier</b> carril, cae todo el sistema. Single Point of Failure.</span>
-          </button>
-          <button class="level" data-mode="microservices" type="button">
-            <span class="level-tag">Nivel 2</span>
-            <strong>Microservicios</strong>
-            <span>5 servicios independientes. Si cruza una amenaza, solo cae ese carril y sus defensas. Game Over cuando caen los 5.</span>
-          </button>
-        </div>
-        <div class="legend">
-          <div>
-            <h3>Defensas</h3>
-            <ul>${DEFENSE_ORDER.map((d) => `<li><b style="color:${DEFENSES[d].color}">${DEFENSES[d].hotkey} · ${DEFENSES[d].name}</b> <em>${DEFENSES[d].cost} CU</em> — ${DEFENSES[d].desc}</li>`).join('')}</ul>
-          </div>
-          <div>
-            <h3>Amenazas</h3>
-            <ul>${ENEMY_ORDER.map((e) => `<li><b>${ENEMIES[e].name}</b> — ${ENEMIES[e].desc}</li>`).join('')}</ul>
-          </div>
-        </div>
-        <p class="controls">Clic en carta o teclas <kbd>1</kbd>–<kbd>5</kbd> · clic en celda para colocar · clic en <span class="cu-inline">⬢ CU</span> para recoger · <kbd>Q</kbd> desmantelar · <kbd>Esc</kbd>/clic derecho cancelar · <kbd>P</kbd> pausa</p>
-      </div>`;
-    this.menu.querySelectorAll<HTMLButtonElement>('.level').forEach((b) => {
-      b.addEventListener('click', () => cb.onStart(b.dataset.mode as Mode));
-    });
 
     this.pause = document.createElement('section');
     this.pause.className = 'overlay pause';
@@ -75,23 +44,65 @@ export class Overlays {
   }
 
   show(which: 'menu' | 'pause' | 'end' | 'none'): void {
+    if (which === 'menu') this.renderMenu();
     this.menu.classList.toggle('visible', which === 'menu');
     this.pause.classList.toggle('visible', which === 'pause');
     this.end.classList.toggle('visible', which === 'end');
   }
 
-  showEnd(ctx: GameContext): void {
+  private renderMenu(): void {
+    const records = loadRecords();
+    const levels = MODE_ORDER.map((m) => {
+      const spec = MODES[m];
+      return `<button class="level" data-mode="${m}" type="button" style="--accent:${spec.color}">
+          <span class="level-tag">Nivel ${spec.level}</span>
+          <strong>${spec.name}</strong>
+          <span>${spec.rule}</span>
+          <span class="record">${describeRecord(records[m])}</span>
+        </button>`;
+    }).join('');
+    this.menu.innerHTML = `
+      <div class="panel">
+        <p class="eyebrow">Tower defense de arquitectura de sistemas</p>
+        <h1>System<span>Defense</span></h1>
+        <p class="lead">El tráfico hostil llega desde Internet (derecha). Coloca defensas en la cuadrícula de 5 carriles × 9 columnas y protege tu base (izquierda). Haz clic en una defensa colocada para mejorarla a v2.</p>
+        <div class="levels">${levels}</div>
+        <details class="guide">
+          <summary>Guía: defensas y amenazas</summary>
+          <div class="legend">
+            <div>
+              <h3>Defensas</h3>
+              <ul>${DEFENSE_ORDER.map((d) => `<li><b style="color:${DEFENSES[d].color}">${DEFENSES[d].hotkey} · ${DEFENSES[d].name}</b> <em>${DEFENSES[d].cost} CU</em> — ${DEFENSES[d].desc}</li>`).join('')}
+              <li><b style="color:#22d3ee">↺ Rollback</b> <em>gratis</em> — Niveles 2 y 3: uno por carril, limpia el carril una vez</li></ul>
+            </div>
+            <div>
+              <h3>Amenazas</h3>
+              <ul>${ENEMY_ORDER.map((e) => `<li><b style="color:${ENEMIES[e].color}">${ENEMIES[e].name}</b> — ${ENEMIES[e].desc}</li>`).join('')}</ul>
+            </div>
+          </div>
+        </details>
+        <p class="controls">Teclas <kbd>1</kbd>–<kbd>8</kbd> defensas · clic en <span class="cu-inline">⬢ CU</span> para recoger · <kbd>Q</kbd> desmantelar · <kbd>Esc</kbd>/clic derecho cancelar · <kbd>P</kbd> pausa · <kbd>F</kbd> ×2 · <kbd>M</kbd> sonido</p>
+      </div>`;
+    this.menu.querySelectorAll<HTMLButtonElement>('.level').forEach((b) => {
+      b.addEventListener('click', () => this.cb.onStart(b.dataset.mode as Mode));
+    });
+  }
+
+  showEnd(ctx: GameContext, newRecord: boolean): void {
     const win = ctx.status === 'victory';
+    const spec = MODES[ctx.mode];
     const alive = ctx.lanesAlive.filter(Boolean).length;
-    const services = ctx.mode === 'microservices' ? `<div><span>Servicios en pie</span><b>${alive}/5</b></div>` : '';
-    const tip =
-      !win && ctx.mode === 'monolith'
-        ? '<p class="tip">Consejo: prueba el Nivel 2. Con microservicios, un fallo no tumba todo el sistema.</p>'
-        : '';
+    const services = ctx.mode !== 'monolith' ? `<div><span>Servicios en pie</span><b>${alive}/5</b></div>` : '';
+    const nextMode = MODE_ORDER[MODE_ORDER.indexOf(ctx.mode) + 1];
+    let tip = '';
+    if (!win && ctx.mode === 'monolith') tip = 'Consejo: prueba el Nivel 2. Con microservicios, un fallo no tumba todo el sistema.';
+    if (!win && ctx.mode === 'microservices') tip = 'Consejo: en el Nivel 3, Kubernetes reinicia solo los servicios caídos.';
+    const nextBtn = nextMode ? `<button class="btn" data-act="next" type="button">Ir al Nivel ${MODES[nextMode].level}</button>` : '';
     this.end.innerHTML = `
       <div class="panel small ${win ? 'win' : 'lose'}">
-        <p class="eyebrow">${ctx.mode === 'monolith' ? 'Nivel 1 · Monolito' : 'Nivel 2 · Microservicios'}</p>
+        <p class="eyebrow">Nivel ${spec.level} · ${spec.name}</p>
         <h2>${win ? 'Sistema escalado' : 'SYSTEM DOWN'}</h2>
+        ${newRecord ? '<p class="new-record">¡Nuevo récord!</p>' : ''}
         <p>${ctx.endReason}</p>
         <div class="stats">
           <div><span>Ola</span><b>${ctx.wave.number}/${TOTAL_WAVES}</b></div>
@@ -99,16 +110,15 @@ export class Overlays {
           <div><span>Uptime</span><b>${fmtTime(ctx.time)}</b></div>
           ${services}
         </div>
-        ${tip}
+        ${tip ? `<p class="tip">${tip}</p>` : ''}
         <div class="row">
           <button class="btn primary" data-act="retry" type="button">Reintentar</button>
-          ${!win && ctx.mode === 'monolith' ? '<button class="btn" data-act="micro" type="button">Ir al Nivel 2</button>' : ''}
-          ${win && ctx.mode === 'monolith' ? '<button class="btn" data-act="micro" type="button">Migrar a Microservicios</button>' : ''}
+          ${nextBtn}
           <button class="btn" data-act="menu" type="button">Menú</button>
         </div>
       </div>`;
     this.end.querySelector('[data-act="retry"]')?.addEventListener('click', () => this.cb.onStart(ctx.mode));
-    this.end.querySelector('[data-act="micro"]')?.addEventListener('click', () => this.cb.onStart('microservices'));
+    if (nextMode) this.end.querySelector('[data-act="next"]')?.addEventListener('click', () => this.cb.onStart(nextMode));
     this.end.querySelector('[data-act="menu"]')?.addEventListener('click', () => this.cb.onMenu());
     this.show('end');
   }

@@ -1,5 +1,6 @@
 import type { System } from '../ecs/System';
-import { spawnEffect, spawnSparks, spawnText } from '../game/factories';
+import { createEnemy, spawnEffect, spawnSparks, spawnText } from '../game/factories';
+import { sound } from '../game/GameContext';
 
 /** Removes entities whose HP reached zero and plays their death effects. */
 export const HealthSystem: System = {
@@ -19,12 +20,21 @@ export const HealthSystem: System = {
           spawnEffect(world, 'explosion', t.x, t.y, '#facc15', { size: 180, duration: 0.8 });
           spawnText(world, t.x, t.y - 60, 'BLACK FRIDAY MITIGADO', '#facc15', 18);
           ctx.shake = Math.max(ctx.shake, 16);
+          sound(ctx, 'explode');
+        }
+        if (enemy.type === 'botnet') {
+          // A botnet splits into 3 small, fast bots.
+          const lane = world.req(e, 'lane').lane;
+          for (const dx of [-28, 0, 28]) createEnemy(world, 'botlet', lane, ctx.wave.hpScale, t.x + dx);
+          spawnText(world, t.x, t.y - 40, '×3', '#fbbf24', 16);
+          sound(ctx, 'split');
         }
       }
 
       const cell = world.get(e, 'gridCell');
       if (cell) {
         ctx.grid[cell.lane][cell.col] = null;
+        if (ctx.inspect && ctx.inspect.lane === cell.lane && ctx.inspect.col === cell.col) ctx.inspect = null;
         spawnSparks(world, t.x, t.y, '#94a3b8', 12, 160);
         spawnText(world, t.x, t.y - 20, 'caído', '#f87171', 13);
       }

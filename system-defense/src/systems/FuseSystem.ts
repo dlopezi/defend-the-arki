@@ -1,6 +1,7 @@
 import { BOSS_BLAST_DAMAGE, CELL_W, GRID_X } from '../config';
 import type { System } from '../ecs/System';
 import { spawnEffect, spawnSparks, spawnText } from '../game/factories';
+import { sound } from '../game/GameContext';
 
 /** Circuit Breaker: after the fuse ends, wipes every threat in the 3x3 area around it. */
 export const FuseSystem: System = {
@@ -34,6 +35,7 @@ export const FuseSystem: System = {
       spawnSparks(world, t.x, t.y, '#fb923c', 26, 320);
       spawnText(world, t.x, t.y - 50, hits > 0 ? `CIRCUITO ABIERTO ×${hits}` : 'CIRCUITO ABIERTO', '#fde047', 16);
       ctx.shake = Math.max(ctx.shake, 14);
+      sound(ctx, 'explode');
       world.destroy(e);
     }
   },

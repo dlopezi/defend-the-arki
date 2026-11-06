@@ -1,10 +1,10 @@
-import { BASE_W, BREACH_X, CANVAS_H, ENEMIES, laneY, SERVICE_NAMES } from '../config';
+import { BASE_W, BREACH_X, CANVAS_H, ENEMIES, laneY, POD_RESTART_TIME, SERVICE_NAMES } from '../config';
 import type { World } from '../ecs/World';
 import type { System } from '../ecs/System';
 import { spawnEffect, spawnSparks } from '../game/factories';
-import { pushBanner, type GameContext } from '../game/GameContext';
+import { pushBanner, sound, type GameContext } from '../game/GameContext';
 
-/** Microservices: a fallen service loses every entity in its lane. */
+/** A fallen service loses every entity in its lane. */
 function takeLaneDown(world: World, ctx: GameContext, lane: number): void {
   ctx.lanesAlive[lane] = false;
   for (const e of world.query('gridCell')) {
@@ -16,13 +16,19 @@ function takeLaneDown(world: World, ctx: GameContext, lane: number): void {
   for (const e of world.query('projectile')) {
     if (world.req(e, 'projectile').lane === lane) world.destroy(e);
   }
+  for (const e of world.query('rollback')) {
+    if (world.req(e, 'rollback').lane === lane) world.destroy(e);
+  }
   ctx.grid[lane].fill(null);
+  if (ctx.inspect?.lane === lane) ctx.inspect = null;
 }
 
 /**
  * The architecture rule lives here.
  * - Monolith: any breach in any lane = the whole system goes down.
  * - Microservices: a breach only kills that lane's service; game over when all 5 are down.
+ * - Kubernetes: like microservices, but fallen lanes restart (LaneRecoverySystem);
+ *   game over only if all 5 are down at the same time.
  */
 export const BreachSystem: System = {
   name: 'breach',
@@ -39,6 +45,7 @@ export const BreachSystem: System = {
         spawnEffect(world, 'explosion', BASE_W / 2, CANVAS_H / 2, '#ef4444', { size: 260, duration: 1.2 });
         spawnSparks(world, BASE_W / 2, laneY(lane), '#ef4444', 40, 320);
         ctx.shake = 22;
+        sound(ctx, 'gameOver');
         world.destroy(e);
         return;
       }
@@ -52,13 +59,27 @@ export const BreachSystem: System = {
       spawnSparks(world, BASE_W / 2, laneY(lane), '#ef4444', 24, 260);
       ctx.shake = Math.max(ctx.shake, 14);
 
+      const k8s = ctx.mode === 'kubernetes';
+      if (k8s) ctx.laneRestart[lane] = POD_RESTART_TIME;
       const alive = ctx.lanesAlive.filter(Boolean).length;
       if (alive === 0) {
         ctx.status = 'gameover';
-        ctx.endReason = 'Los 5 microservicios cayeron. No queda ningún servicio en pie.';
+        ctx.endReason = k8s
+          ? 'Los 5 pods cayeron a la vez. El clúster no pudo recuperarse a tiempo.'
+          : 'Los 5 microservicios cayeron. No queda ningún servicio en pie.';
+        sound(ctx, 'gameOver');
         return;
       }
-      pushBanner(ctx, `${SERVICE_NAMES[lane]} CAÍDO`, '#f87171', `"${name}" rompió el carril ${lane + 1}. Quedan ${alive}/5 servicios.`, 2.8);
+      sound(ctx, 'laneDown');
+      pushBanner(
+        ctx,
+        `${SERVICE_NAMES[lane]} CAÍDO`,
+        '#f87171',
+        k8s
+          ? `"${name}" rompió el carril ${lane + 1}. Reinicio automático en ${POD_RESTART_TIME} s.`
+          : `"${name}" rompió el carril ${lane + 1}. Quedan ${alive}/5 servicios.`,
+        2.8,
+      );
     }
   },
 };

@@ -29,6 +29,35 @@ export interface DefenseDrawOpts {
   /** Generator charge 0..1 (Worker Node). */
   charge?: number;
   hpRatio?: number;
+  /** 2 = upgraded (shows a v2 badge). */
+  level?: number;
+  /** Locked by Ransomware. */
+  encrypted?: boolean;
+  /** Fire rate halved by a Slowloris. */
+  throttled?: boolean;
+  /** Kafka: 1 = ready, 0 = just used. */
+  trapReady?: number;
+  /** Kafka is holding a threat right now. */
+  trapBusy?: boolean;
+}
+
+function padlock(g: G, x: number, y: number, s: number): void {
+  g.save();
+  g.translate(x, y);
+  g.scale(s, s);
+  g.strokeStyle = '#fecaca';
+  g.lineWidth = 3;
+  g.beginPath();
+  g.arc(0, -6, 7, Math.PI, TAU);
+  g.stroke();
+  rr(g, -10, -6, 20, 16, 3);
+  g.fillStyle = '#dc2626';
+  g.fill();
+  g.fillStyle = '#450a0a';
+  circle(g, 0, 1, 2.5);
+  g.fill();
+  g.fillRect(-1, 2, 2, 5);
+  g.restore();
 }
 
 /** Draws a defense centered at (x, y), about 70x70 px. */
@@ -208,8 +237,130 @@ export function drawDefense(g: G, type: DefenseType, x: number, y: number, time:
       }
       break;
     }
+    case 'waf': {
+      rr(g, -25, -44, 50, 80, 6);
+      g.fillStyle = '#134e4a';
+      g.fill();
+      g.strokeStyle = '#2dd4bf';
+      g.stroke();
+      g.strokeStyle = 'rgba(45,212,191,0.35)';
+      g.lineWidth = 1.5;
+      for (let r = 0; r < 7; r++) {
+        const by = -36 + r * 11;
+        g.beginPath();
+        g.moveTo(-25, by);
+        g.lineTo(25, by);
+        g.stroke();
+        const off = r % 2 === 0 ? -8 : 8;
+        g.beginPath();
+        g.moveTo(off, by);
+        g.lineTo(off, by + 11);
+        g.stroke();
+      }
+      // shield
+      g.beginPath();
+      g.moveTo(0, -18);
+      g.lineTo(13, -12);
+      g.lineTo(11, 4);
+      g.lineTo(0, 13);
+      g.lineTo(-11, 4);
+      g.lineTo(-13, -12);
+      g.closePath();
+      g.fillStyle = '#0f766e';
+      g.fill();
+      g.strokeStyle = '#99f6e4';
+      g.lineWidth = 2;
+      g.stroke();
+      label(g, 'WAF', 0, -3, 10, '#f0fdfa');
+      const hp = o.hpRatio ?? 1;
+      if (hp < 0.5) {
+        g.strokeStyle = '#042f2e';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(-18, -34);
+        g.lineTo(-8, -22);
+        g.lineTo(-16, -8);
+        g.stroke();
+      }
+      break;
+    }
+    case 'cdn': {
+      g.fillStyle = '#be185d';
+      g.strokeStyle = '#fbcfe8';
+      for (const a of [-0.55, 0, 0.55]) {
+        g.save();
+        g.rotate(a);
+        rr(g, 20, -5, 18, 10, 3);
+        g.fill();
+        g.stroke();
+        g.restore();
+      }
+      circle(g, 0, 0, 25);
+      g.fillStyle = '#500724';
+      g.fill();
+      g.strokeStyle = '#f472b6';
+      g.lineWidth = 2;
+      g.stroke();
+      g.strokeStyle = 'rgba(244,114,182,0.55)';
+      g.lineWidth = 1.5;
+      const spin = Math.sin(time * 1.5) * 8;
+      g.beginPath();
+      g.ellipse(0, 0, Math.abs(spin) + 4, 25, 0, 0, TAU);
+      g.stroke();
+      g.beginPath();
+      g.ellipse(0, 0, 25, 9, 0, 0, TAU);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(-25, 0);
+      g.lineTo(25, 0);
+      g.stroke();
+      label(g, 'CDN', 0, 13, 9, '#fce7f3');
+      break;
+    }
+    case 'kafka': {
+      const ready = o.trapReady ?? 1;
+      rr(g, -38, 4, 76, 28, 6);
+      g.fillStyle = '#431407';
+      g.fill();
+      g.strokeStyle = '#fb923c';
+      g.lineWidth = 2;
+      g.stroke();
+      const segs = 6;
+      for (let i = 0; i < segs; i++) {
+        const lit = o.trapBusy ? Math.floor(time * 8) % segs === i : i / segs < ready;
+        rr(g, -33 + i * 11.2, 10, 9, 16, 2);
+        g.fillStyle = lit ? '#fdba74' : '#7c2d12';
+        g.fill();
+      }
+      // topic tag
+      rr(g, -20, -16, 40, 16, 4);
+      g.fillStyle = '#7c2d12';
+      g.fill();
+      label(g, 'kafka', 0, -8, 9, '#ffedd5');
+      break;
+    }
   }
 
+  if (o.level === 2) {
+    rr(g, 12, -46, 22, 14, 4);
+    g.fillStyle = '#fde047';
+    g.fill();
+    label(g, 'v2', 23, -39, 9, '#422006');
+  }
+  if (o.throttled) {
+    rr(g, -34, -46, 22, 14, 4);
+    g.fillStyle = '#0369a1';
+    g.fill();
+    label(g, '½', -23, -39, 10, '#e0f2fe');
+  }
+  if (o.encrypted) {
+    g.globalAlpha = 0.55;
+    rr(g, -32, -40, 64, 76, 10);
+    g.fillStyle = '#1c0505';
+    g.fill();
+    g.globalAlpha = 1;
+    padlock(g, 0, 0, 1.3);
+  }
   if (o.flash && o.flash > 0) {
     g.globalAlpha = Math.min(0.55, o.flash * 6);
     rr(g, -32, -36, 64, 72, 10);
@@ -220,11 +371,46 @@ export function drawDefense(g: G, type: DefenseType, x: number, y: number, time:
   g.restore();
 }
 
+/** One-time Rollback waiting next to the base, or sweeping the lane. */
+export function drawRollback(g: G, x: number, y: number, running: boolean, time: number): void {
+  g.save();
+  g.translate(x, y);
+  if (running) {
+    const grad = g.createLinearGradient(-90, 0, 0, 0);
+    grad.addColorStop(0, 'rgba(34,211,238,0)');
+    grad.addColorStop(1, 'rgba(34,211,238,0.45)');
+    g.fillStyle = grad;
+    g.fillRect(-90, -40, 90, 80);
+    g.rotate(time * 12);
+  }
+  rr(g, -14, -16, 28, 32, 7);
+  g.fillStyle = '#083344';
+  g.fill();
+  g.strokeStyle = '#22d3ee';
+  g.lineWidth = 2;
+  g.stroke();
+  g.beginPath();
+  g.arc(0, 0, 8, Math.PI * 0.35, Math.PI * 1.9);
+  g.stroke();
+  const ax = Math.cos(Math.PI * 0.35) * 8;
+  const ay = Math.sin(Math.PI * 0.35) * 8;
+  g.fillStyle = '#22d3ee';
+  g.beginPath();
+  g.moveTo(ax + 4, ay - 4);
+  g.lineTo(ax - 4, ay + 1);
+  g.lineTo(ax + 3, ay + 5);
+  g.closePath();
+  g.fill();
+  g.restore();
+}
+
 export interface EnemyDrawOpts {
   flash: number;
   slowed: boolean;
   state: EnemyState;
   jumpHeight: number;
+  /** Kafka hold left, 0..1 (undefined when not held). */
+  held?: number;
 }
 
 /** Draws an enemy centered at (x, y). */
@@ -371,6 +557,162 @@ export function drawEnemy(g: G, type: EnemyType, x: number, y: number, w: number
       label(g, '-70%', 0, -h / 2 + 82, 16, '#ffffff');
       break;
     }
+    case 'sqli': {
+      g.fillStyle = '#1a2e05';
+      g.fillRect(-12 + step * 3, h / 2 - 12, 7, 12);
+      g.fillRect(5 - step * 3, h / 2 - 12, 7, 12);
+      rr(g, -w / 2, -h / 2, w, h - 10, 6);
+      g.fillStyle = '#1a2e05';
+      g.fill();
+      g.strokeStyle = '#84cc16';
+      g.stroke();
+      rr(g, -w / 2 + 5, -h / 2 + 6, w - 10, 16, 3);
+      g.fillStyle = '#020617';
+      g.fill();
+      label(g, "'OR 1=1", 0, -h / 2 + 14, 7, '#bef264');
+      g.fillStyle = '#bef264';
+      g.fillRect(-9, -2, 5, 5);
+      g.fillRect(4, -2, 5, 5);
+      label(g, 'SQLi', 0, 12, 9, '#d9f99d');
+      break;
+    }
+    case 'botnet': {
+      const nodes: [number, number][] = [
+        [-16, -10],
+        [16, -10],
+        [0, 12],
+      ];
+      g.strokeStyle = '#fbbf24';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(nodes[0][0], nodes[0][1]);
+      g.lineTo(nodes[1][0], nodes[1][1]);
+      g.lineTo(nodes[2][0], nodes[2][1]);
+      g.closePath();
+      g.stroke();
+      nodes.forEach(([nx, ny], i) => {
+        const j = Math.sin(time * 7 + i * 2) * 1.5;
+        circle(g, nx, ny + j, 14);
+        g.fillStyle = '#78350f';
+        g.fill();
+        g.strokeStyle = '#fbbf24';
+        g.stroke();
+        g.fillStyle = Math.sin(time * 6 + i) > 0 ? '#ef4444' : '#fde68a';
+        circle(g, nx, ny + j - 2, 3.5);
+        g.fill();
+      });
+      label(g, 'BOTNET', 0, h / 2 - 2, 9, '#fef3c7');
+      break;
+    }
+    case 'botlet': {
+      g.fillStyle = '#78350f';
+      g.fillRect(-8 + step * 2, h / 2 - 7, 4, 7);
+      g.fillRect(4 - step * 2, h / 2 - 7, 4, 7);
+      rr(g, -w / 2, -h / 2, w, h - 6, 5);
+      g.fillStyle = '#92400e';
+      g.fill();
+      g.strokeStyle = '#fbbf24';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = '#ef4444';
+      circle(g, 0, -h / 2 + 9, 3);
+      g.fill();
+      break;
+    }
+    case 'slowloris': {
+      // open connections trailing behind it
+      g.strokeStyle = 'rgba(56,189,248,0.5)';
+      g.lineWidth = 1.5;
+      for (let i = 0; i < 4; i++) {
+        g.beginPath();
+        const yy = -h / 2 + 12 + i * 12;
+        g.moveTo(w / 2, yy);
+        for (let k = 1; k <= 6; k++) g.lineTo(w / 2 + k * 9, yy + Math.sin(time * 3 + k + i) * 3);
+        g.stroke();
+      }
+      g.fillStyle = '#082f49';
+      g.fillRect(-12 + step, h / 2 - 12, 8, 12);
+      g.fillRect(4 - step, h / 2 - 12, 8, 12);
+      rr(g, -w / 2, -h / 2, w, h - 10, 12);
+      g.fillStyle = '#0c4a6e';
+      g.fill();
+      g.strokeStyle = '#38bdf8';
+      g.lineWidth = 2;
+      g.stroke();
+      // hourglass
+      g.fillStyle = '#bae6fd';
+      g.beginPath();
+      g.moveTo(-9, -h / 2 + 10);
+      g.lineTo(9, -h / 2 + 10);
+      g.lineTo(0, -h / 2 + 22);
+      g.lineTo(9, -h / 2 + 34);
+      g.lineTo(-9, -h / 2 + 34);
+      g.lineTo(0, -h / 2 + 22);
+      g.closePath();
+      g.fill();
+      label(g, 'keep-alive', 0, h / 2 - 20, 7, '#e0f2fe');
+      break;
+    }
+    case 'ransomware': {
+      g.fillStyle = '#1c0505';
+      g.fillRect(-12 + step * 3, h / 2 - 12, 7, 12);
+      g.fillRect(5 - step * 3, h / 2 - 12, 7, 12);
+      rr(g, -w / 2, -h / 2, w, h - 10, 8);
+      g.fillStyle = '#450a0a';
+      g.fill();
+      g.strokeStyle = '#ef4444';
+      g.stroke();
+      padlock(g, 0, -6, 0.9);
+      label(g, 'RANSOM', 0, 14, 8, '#fecaca');
+      break;
+    }
+    case 'memoryLeak': {
+      const wob = (k: number) => Math.sin(time * 4 + k) * 2;
+      g.beginPath();
+      for (let i = 0; i <= 16; i++) {
+        const a = (i / 16) * TAU;
+        const rx = (w / 2) * (1 + 0.06 * Math.sin(time * 5 + i * 1.3));
+        const ry = (h / 2) * (1 + 0.06 * Math.cos(time * 4 + i));
+        if (i === 0) g.moveTo(Math.cos(a) * rx, Math.sin(a) * ry);
+        else g.lineTo(Math.cos(a) * rx, Math.sin(a) * ry);
+      }
+      g.closePath();
+      g.fillStyle = '#3b0764';
+      g.fill();
+      g.strokeStyle = '#c084fc';
+      g.lineWidth = 2;
+      g.stroke();
+      // drips
+      g.fillStyle = '#a855f7';
+      circle(g, -w / 4, h / 2 + 4 + wob(1), 3);
+      g.fill();
+      circle(g, w / 5, h / 2 + 6 + wob(2), 2.5);
+      g.fill();
+      const s = Math.max(8, Math.min(14, w / 5));
+      label(g, 'heap↑', 0, 0, s, '#f3e8ff');
+      break;
+    }
+  }
+
+  if (o.held !== undefined) {
+    g.strokeStyle = '#fb923c';
+    g.lineWidth = 3;
+    const bx = w / 2 + 5;
+    const by = h / 2 + 3;
+    g.beginPath();
+    g.moveTo(-bx + 8, -by);
+    g.lineTo(-bx, -by);
+    g.lineTo(-bx, by);
+    g.lineTo(-bx + 8, by);
+    g.moveTo(bx - 8, -by);
+    g.lineTo(bx, -by);
+    g.lineTo(bx, by);
+    g.lineTo(bx - 8, by);
+    g.stroke();
+    g.fillStyle = 'rgba(0,0,0,0.6)';
+    g.fillRect(-w / 2, by + 4, w, 4);
+    g.fillStyle = '#fb923c';
+    g.fillRect(-w / 2, by + 4, w * o.held, 4);
   }
 
   if (o.slowed) {

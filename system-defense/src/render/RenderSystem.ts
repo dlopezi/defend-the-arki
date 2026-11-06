@@ -13,14 +13,19 @@ import {
   GRID_Y,
   LANES,
   laneY,
+  MODES,
+  POD_RESTART_TIME,
   SERVICE_NAMES,
+  upgradePanelRect,
 } from '../config';
 import type { Entity, World } from '../ecs/World';
 import type { GameContext } from '../game/GameContext';
-import { drawCU, drawDefense, drawEnemy, drawProjectile } from './sprites';
+import { drawCU, drawDefense, drawEnemy, drawProjectile, drawRollback } from './sprites';
 
 type G = CanvasRenderingContext2D;
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+/** Width of the base drawing (the rest of BASE_W is the Rollback column). */
+const BASE_DRAW_W = BASE_W - 52;
 
 /**
  * Render system. It only reads components and context; it never changes game state.
@@ -43,12 +48,14 @@ export class RenderSystem {
     this.drawBoard(ctx, time);
     this.drawBase(ctx, time);
     this.drawHover(ctx);
-    this.drawDefenses(world, time);
+    this.drawDefenses(world, ctx, time);
+    this.drawRollbacks(world, time);
     this.drawEnemies(world, time);
     this.drawProjectiles(world);
     this.drawCollectibles(world, time);
     this.drawEffects(world);
     this.drawDeadLanes(ctx);
+    this.drawUpgradePanel(world, ctx);
     g.restore();
     this.drawBanners(ctx);
     this.drawDebug(world, fps);
@@ -68,7 +75,6 @@ export class RenderSystem {
         g.lineWidth = 1;
         g.strokeRect(x + 0.5, y + 0.5, CELL_W - 1, CELL_H - 1);
       }
-      // network "cable" along each lane
       const y = laneY(lane) + 38;
       g.strokeStyle = 'rgba(56,189,248,0.10)';
       g.lineWidth = 2;
@@ -79,6 +85,11 @@ export class RenderSystem {
       g.lineTo(CANVAS_W, y);
       g.stroke();
       g.setLineDash([]);
+      // Slowloris: the lane's connections are held open.
+      if (ctx.laneThrottled[lane] && ctx.lanesAlive[lane]) {
+        g.fillStyle = 'rgba(14,165,233,0.06)';
+        g.fillRect(GRID_X, GRID_Y + lane * CELL_H, GRID_RIGHT - GRID_X, CELL_H);
+      }
     }
     // Internet side
     const grad = g.createLinearGradient(GRID_RIGHT, 0, CANVAS_W, 0);
@@ -111,7 +122,7 @@ export class RenderSystem {
       const down = ctx.status === 'gameover';
       const x = 8;
       const y = 8;
-      const w = BASE_W - 22;
+      const w = BASE_DRAW_W;
       const h = CANVAS_H - 16;
       const grad = g.createLinearGradient(0, y, 0, y + h);
       grad.addColorStop(0, down ? '#450a0a' : '#1e293b');
@@ -149,45 +160,48 @@ export class RenderSystem {
       return;
     }
 
+    const k8s = ctx.mode === 'kubernetes';
+    const accent = MODES[ctx.mode].color;
     for (let lane = 0; lane < LANES; lane++) {
       const alive = ctx.lanesAlive[lane];
+      const restarting = !alive && k8s && ctx.laneRestart[lane] > 0;
       const x = 8;
       const y = GRID_Y + lane * CELL_H + 8;
-      const w = BASE_W - 22;
+      const w = BASE_DRAW_W;
       const h = CELL_H - 16;
       g.beginPath();
       g.roundRect(x, y, w, h, 8);
-      g.fillStyle = alive ? '#0f2a24' : '#1f0b0b';
+      g.fillStyle = alive ? (k8s ? '#1e1b4b' : '#0f2a24') : restarting ? '#1c1917' : '#1f0b0b';
       g.fill();
-      g.strokeStyle = alive ? '#34d399' : '#7f1d1d';
+      g.strokeStyle = alive ? accent : restarting ? '#f59e0b' : '#7f1d1d';
       g.lineWidth = 2;
       g.stroke();
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.font = `700 11px ${MONO}`;
-      g.fillStyle = alive ? '#d1fae5' : '#7f1d1d';
-      g.fillText(SERVICE_NAMES[lane], x + w / 2, y + 18);
-      // container icons
+      g.fillStyle = alive ? '#e0e7ff' : restarting ? '#fcd34d' : '#7f1d1d';
+      g.fillText(k8s ? SERVICE_NAMES[lane].replace('-svc', '-pod') : SERVICE_NAMES[lane], x + w / 2, y + 16);
       for (let i = 0; i < 3; i++) {
         g.beginPath();
-        g.roundRect(x + 12 + i * 22, y + 32, 16, 16, 3);
-        g.fillStyle = alive ? '#065f46' : '#2a0e0e';
+        g.roundRect(x + 10 + i * 24, y + 30, 18, 16, 3);
+        g.fillStyle = alive ? (k8s ? '#3730a3' : '#065f46') : '#2a0e0e';
         g.fill();
       }
       const on = Math.sin(time * 4 + lane) > -0.5;
-      g.fillStyle = alive ? (on ? '#4ade80' : '#166534') : '#ef4444';
+      g.fillStyle = alive ? (on ? '#4ade80' : '#166534') : restarting ? '#f59e0b' : '#ef4444';
       g.beginPath();
-      g.arc(x + 14, y + h - 14, 3.5, 0, Math.PI * 2);
+      g.arc(x + 12, y + h - 13, 3.5, 0, Math.PI * 2);
       g.fill();
       g.font = `700 10px ${MONO}`;
-      g.fillStyle = alive ? '#6ee7b7' : '#f87171';
-      g.fillText(alive ? '200 OK' : '503', x + w / 2 + 8, y + h - 14);
+      g.fillStyle = alive ? '#a7f3d0' : restarting ? '#fcd34d' : '#f87171';
+      const status = alive ? '200 OK' : restarting ? `↻ ${Math.ceil(ctx.laneRestart[lane])}s` : '503';
+      g.fillText(status, x + w / 2 + 6, y + h - 13);
     }
   }
 
   private drawHover(ctx: GameContext): void {
     const hover = ctx.input.hover;
-    if (!hover || !ctx.selected || ctx.status !== 'playing') return;
+    if (!hover || ctx.status !== 'playing') return;
     const cell = cellAt(hover.x, hover.y);
     if (!cell) return;
     const g = this.g;
@@ -196,6 +210,15 @@ export class RenderSystem {
     const occupant = ctx.grid[cell.lane][cell.col];
     const laneOk = ctx.lanesAlive[cell.lane];
 
+    if (!ctx.selected) {
+      // Hint: a placed defense can be clicked to upgrade it.
+      if (occupant !== null && laneOk) {
+        g.strokeStyle = 'rgba(253,224,71,0.55)';
+        g.lineWidth = 2;
+        g.strokeRect(x + 2, y + 2, CELL_W - 4, CELL_H - 4);
+      }
+      return;
+    }
     if (ctx.selected === 'shovel') {
       g.fillStyle = occupant !== null && laneOk ? 'rgba(248,113,113,0.25)' : 'rgba(148,163,184,0.10)';
       g.fillRect(x, y, CELL_W, CELL_H);
@@ -204,14 +227,15 @@ export class RenderSystem {
     const spec = DEFENSES[ctx.selected];
     const ok = laneOk && occupant === null && ctx.cu >= spec.cost && ctx.cooldowns[ctx.selected] <= 0;
 
-    if (ctx.selected === 'circuitBreaker') {
-      g.fillStyle = 'rgba(250,204,21,0.08)';
-      const ax = GRID_X + Math.max(0, cell.col - 1) * CELL_W;
+    if (ctx.selected === 'circuitBreaker' || ctx.selected === 'cdn') {
+      const cb = ctx.selected === 'circuitBreaker';
+      const ax = cb ? GRID_X + Math.max(0, cell.col - 1) * CELL_W : x;
+      const ax2 = cb ? GRID_X + Math.min(COLS, cell.col + 2) * CELL_W : GRID_RIGHT;
       const ay = GRID_Y + Math.max(0, cell.lane - 1) * CELL_H;
-      const ax2 = GRID_X + Math.min(COLS, cell.col + 2) * CELL_W;
       const ay2 = GRID_Y + Math.min(LANES, cell.lane + 2) * CELL_H;
+      g.fillStyle = cb ? 'rgba(250,204,21,0.08)' : 'rgba(244,114,182,0.07)';
       g.fillRect(ax, ay, ax2 - ax, ay2 - ay);
-      g.strokeStyle = 'rgba(250,204,21,0.6)';
+      g.strokeStyle = cb ? 'rgba(250,204,21,0.6)' : 'rgba(244,114,182,0.5)';
       g.setLineDash([6, 4]);
       g.strokeRect(ax + 1, ay + 1, ax2 - ax - 2, ay2 - ay - 2);
       g.setLineDash([]);
@@ -225,21 +249,36 @@ export class RenderSystem {
     }
   }
 
-  private drawDefenses(world: World, time: number): void {
+  private drawDefenses(world: World, ctx: GameContext, time: number): void {
     const g = this.g;
-    for (const e of world.query('defense', 'transform', 'health')) {
+    for (const e of world.query('defense', 'transform', 'health', 'gridCell')) {
       const d = world.req(e, 'defense');
       const t = world.req(e, 'transform');
       const h = world.req(e, 'health');
       const gen = world.get(e, 'generator');
       const fuse = world.get(e, 'fuse');
+      const trap = world.get(e, 'trap');
+      const lane = world.req(e, 'gridCell').lane;
       drawDefense(g, d.type, t.x, t.y, time, {
         flash: h.flash,
         charge: gen ? 1 - gen.timer / gen.interval : undefined,
         fuse: fuse ? fuse.timer / fuse.total : undefined,
         hpRatio: h.hp / h.max,
+        level: d.level,
+        encrypted: world.has(e, 'encrypted'),
+        throttled: world.has(e, 'shooter') && ctx.laneThrottled[lane],
+        trapReady: trap ? 1 - trap.timer / trap.recharge : undefined,
+        trapBusy: trap ? trap.captured !== null : undefined,
       });
-      if (h.hp < h.max && d.type !== 'circuitBreaker') this.hpBar(t.x, t.y - 44, 54, h.hp / h.max, '#4ade80');
+      const showHp = h.hp < h.max && d.type !== 'circuitBreaker' && d.type !== 'kafka';
+      if (showHp) this.hpBar(t.x, t.y - (d.type === 'waf' ? 54 : 44), 54, h.hp / h.max, '#4ade80');
+    }
+  }
+
+  private drawRollbacks(world: World, time: number): void {
+    for (const e of world.query('rollback', 'transform')) {
+      const t = world.req(e, 'transform');
+      drawRollback(this.g, t.x, t.y, world.req(e, 'rollback').running, time);
     }
   }
 
@@ -252,20 +291,25 @@ export class RenderSystem {
       const t = world.req(e, 'transform');
       const h = world.req(e, 'health');
       const j = world.get(e, 'jumper');
+      const held = world.get(e, 'held');
       let jumpHeight = 0;
       if (j && en.state === 'jump') {
         const p = Math.min(1, j.t / j.duration);
         jumpHeight = Math.sin(p * Math.PI) * 70;
       }
-      const yOffset = en.type === 'blackFriday' ? -12 : 0;
+      const yOffset = en.type === 'blackFriday' ? -12 : en.type === 'botlet' ? 12 : 0;
       drawEnemy(g, en.type, t.x, t.y + yOffset, en.width, en.height, time, {
         flash: h.flash,
         slowed: world.has(e, 'slowed'),
         state: en.state,
         jumpHeight,
+        held: held ? held.timer / held.total : undefined,
       });
-      if (h.hp < h.max) {
-        this.hpBar(t.x, t.y + yOffset - en.height / 2 - 10 - jumpHeight, Math.max(40, en.width), h.hp / h.max, '#f87171');
+      if (h.hp < h.max && en.type !== 'memoryLeak') {
+        this.hpBar(t.x, t.y + yOffset - en.height / 2 - 10 - jumpHeight, Math.max(30, en.width), h.hp / h.max, '#f87171');
+      } else if (en.type === 'memoryLeak') {
+        // Leak shows its total size instead: the bar keeps growing.
+        this.hpBar(t.x, t.y - en.height / 2 - 12, Math.max(30, en.width), h.hp / h.max, '#c084fc');
       }
     }
   }
@@ -336,18 +380,20 @@ export class RenderSystem {
 
   private drawDeadLanes(ctx: GameContext): void {
     const g = this.g;
+    const k8s = ctx.mode === 'kubernetes';
     for (let lane = 0; lane < LANES; lane++) {
       if (ctx.lanesAlive[lane]) continue;
       const y = GRID_Y + lane * CELL_H;
+      const restarting = k8s && ctx.laneRestart[lane] > 0;
       g.fillStyle = 'rgba(2,4,10,0.78)';
-      g.fillRect(GRID_X - 4, y, CANVAS_W - GRID_X + 4, CELL_H);
+      g.fillRect(GRID_X - 30, y, CANVAS_W - GRID_X + 30, CELL_H);
       g.save();
       g.beginPath();
-      g.rect(GRID_X - 4, y, CANVAS_W - GRID_X + 4, CELL_H);
+      g.rect(GRID_X - 30, y, CANVAS_W - GRID_X + 30, CELL_H);
       g.clip();
-      g.strokeStyle = 'rgba(239,68,68,0.10)';
+      g.strokeStyle = restarting ? 'rgba(245,158,11,0.10)' : 'rgba(239,68,68,0.10)';
       g.lineWidth = 10;
-      for (let x = GRID_X - 100; x < CANVAS_W + 100; x += 40) {
+      for (let x = GRID_X - 130; x < CANVAS_W + 100; x += 40) {
         g.beginPath();
         g.moveTo(x, y);
         g.lineTo(x + CELL_H, y + CELL_H);
@@ -357,13 +403,65 @@ export class RenderSystem {
       g.font = `800 20px ${MONO}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillStyle = 'rgba(248,113,113,0.85)';
-      g.fillText(`503 SERVICE UNAVAILABLE · ${SERVICE_NAMES[lane]}`, (GRID_X + GRID_RIGHT) / 2, y + CELL_H / 2);
+      const cx = (GRID_X + GRID_RIGHT) / 2;
+      if (restarting) {
+        const left = ctx.laneRestart[lane];
+        g.fillStyle = 'rgba(252,211,77,0.9)';
+        g.fillText(`Reiniciando pod… ${Math.ceil(left)} s`, cx, y + CELL_H / 2 - 8);
+        const bw = 260;
+        g.fillStyle = 'rgba(0,0,0,0.6)';
+        g.fillRect(cx - bw / 2, y + CELL_H / 2 + 14, bw, 6);
+        g.fillStyle = '#f59e0b';
+        g.fillRect(cx - bw / 2, y + CELL_H / 2 + 14, bw * (1 - left / POD_RESTART_TIME), 6);
+      } else {
+        g.fillStyle = 'rgba(248,113,113,0.85)';
+        g.fillText(`503 SERVICE UNAVAILABLE · ${SERVICE_NAMES[lane]}`, cx, y + CELL_H / 2);
+      }
     }
     if (ctx.mode === 'monolith' && ctx.status === 'gameover') {
       g.fillStyle = 'rgba(127,29,29,0.35)';
       g.fillRect(0, 0, CANVAS_W, CANVAS_H);
     }
+  }
+
+  private drawUpgradePanel(world: World, ctx: GameContext): void {
+    const insp = ctx.inspect;
+    if (!insp || ctx.status !== 'playing') return;
+    const e = ctx.grid[insp.lane][insp.col];
+    const d = e !== null ? world.get(e, 'defense') : undefined;
+    if (e === null || !d) return;
+    const spec = DEFENSES[d.type];
+    const g = this.g;
+    const r = upgradePanelRect(insp.lane, insp.col);
+
+    g.strokeStyle = '#fde047';
+    g.lineWidth = 2;
+    g.strokeRect(GRID_X + insp.col * CELL_W + 2, GRID_Y + insp.lane * CELL_H + 2, CELL_W - 4, CELL_H - 4);
+
+    const can = spec.upgrade !== null && d.level < 2;
+    const afford = ctx.cu >= spec.cost;
+    g.beginPath();
+    g.roundRect(r.x, r.y, r.w, r.h, 8);
+    g.fillStyle = 'rgba(11,18,36,0.96)';
+    g.fill();
+    g.strokeStyle = can ? (afford ? '#fde047' : '#f87171') : '#475569';
+    g.lineWidth = 2;
+    g.stroke();
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    const cx = r.x + r.w / 2;
+    if (!can) {
+      g.font = `700 12px ${MONO}`;
+      g.fillStyle = '#94a3b8';
+      g.fillText(spec.upgrade === null ? 'No mejorable' : `${spec.short} ya es v2`, cx, r.y + r.h / 2);
+      return;
+    }
+    g.font = `800 13px ${MONO}`;
+    g.fillStyle = afford ? '#fde047' : '#f87171';
+    g.fillText(`⬆ Mejorar a v2 · ${spec.cost} CU`, cx, r.y + 16);
+    g.font = `500 10px ${MONO}`;
+    g.fillStyle = '#cbd5e1';
+    g.fillText(spec.upgrade ?? '', cx, r.y + 35);
   }
 
   private drawBanners(ctx: GameContext): void {

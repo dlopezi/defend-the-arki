@@ -1,5 +1,7 @@
+import { ENCRYPT_TIME } from '../config';
 import type { System } from '../ecs/System';
 import { spawnSparks, spawnText } from '../game/factories';
+import { sound } from '../game/GameContext';
 
 /** Enemies in "attack" state damage the defense in front of them. */
 export const MeleeSystem: System = {
@@ -18,6 +20,18 @@ export const MeleeSystem: System = {
       const slow = world.get(e, 'slowed');
       const rate = slow ? slow.factor : 1;
 
+      // Ransomware locks the defense it touches.
+      if (enemy.type === 'ransomware') {
+        const lock = world.get(a.target, 'encrypted');
+        if (lock) lock.timer = ENCRYPT_TIME;
+        else {
+          world.add(a.target, 'encrypted', { timer: ENCRYPT_TIME });
+          const t = world.get(a.target, 'transform');
+          if (t) spawnText(world, t.x, t.y - 40, 'CIFRADO', '#f87171', 15);
+          sound(ctx, 'encrypt');
+        }
+      }
+
       if (a.oneShot) {
         a.timer -= dt * rate;
         if (a.timer <= 0) {
@@ -25,6 +39,7 @@ export const MeleeSystem: System = {
           h.hp = 0;
           h.flash = 0.2;
           ctx.shake = Math.max(ctx.shake, 10);
+          sound(ctx, 'smash');
           const t = world.get(a.target, 'transform');
           if (t) {
             spawnText(world, t.x, t.y - 40, 'SMASH!', '#facc15', 20);
