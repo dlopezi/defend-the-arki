@@ -147,7 +147,6 @@ export class Game {
     if (!id) return;
     saveSeen(ctx.seen);
     ctx.status = 'paused';
-    ctx.selected = null;
     this.overlays.showConcept(id, {
       inGame: true,
       onClose: (disableAll) => {
@@ -189,12 +188,20 @@ export class Game {
       ctx.selected = null;
       return;
     }
-    if (tool !== 'shovel' && (ctx.cu < DEFENSES[tool].cost || ctx.cooldowns[tool] > 0)) {
+    const firstTime = tool !== 'shovel' && ctx.learnEnabled && !ctx.seen.has(tool);
+    const usable = tool === 'shovel' || (ctx.cu >= DEFENSES[tool].cost && ctx.cooldowns[tool] <= 0);
+    if (usable) ctx.selected = tool;
+    else if (!firstTime) {
       this.hud.deny(tool);
       this.sfx.play('deny');
-      return;
     }
-    ctx.selected = tool;
+    // The concept card helps decide whether to use this defense, so it shows on selection,
+    // even when the player cannot afford it yet. The selection stays after closing it.
+    if (firstTime) {
+      ctx.seen.add(tool);
+      ctx.conceptQueue.unshift(tool);
+      this.openNextConcept();
+    }
   }
 
   /* ---------- Game loop ---------- */
