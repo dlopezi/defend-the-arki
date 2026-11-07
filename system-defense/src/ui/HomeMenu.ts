@@ -24,7 +24,7 @@ export interface HomeCallbacks {
 }
 
 /** "Press start" was already passed in this browser tab. */
-const STARTED_KEY = 'system-defense:started';
+const STARTED_KEY = 'defend-the-arki:started';
 function readStarted(): boolean {
   try {
     return sessionStorage.getItem(STARTED_KEY) === '1';

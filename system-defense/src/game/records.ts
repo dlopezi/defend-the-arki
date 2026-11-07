@@ -9,7 +9,7 @@ export interface LevelRecord {
 
 export type Records = { [M in Mode]: LevelRecord };
 
-const KEY = 'system-defense:records';
+const KEY = 'defend-the-arki:records';
 
 function empty(): Records {
   const r = {} as Records;

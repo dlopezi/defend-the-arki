@@ -1,7 +1,7 @@
 import type { ConceptId } from './concepts';
 
-const SEEN_KEY = 'system-defense:seen-concepts';
-const ENABLED_KEY = 'system-defense:concepts-enabled';
+const SEEN_KEY = 'defend-the-arki:seen-concepts';
+const ENABLED_KEY = 'defend-the-arki:concepts-enabled';
 
 /** Concept cards already shown in this browser. */
 export function loadSeen(): Set<ConceptId> {

@@ -6,7 +6,7 @@
  */
 export type Lang = 'en' | 'es';
 
-const KEY = 'system-defense:lang';
+const KEY = 'defend-the-arki:lang';
 
 function load(): Lang {
   try {

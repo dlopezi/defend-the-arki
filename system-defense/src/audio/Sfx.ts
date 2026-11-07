@@ -1,6 +1,6 @@
 import type { SoundName } from '../game/GameContext';
 
-const STORAGE_KEY = 'system-defense:muted';
+const STORAGE_KEY = 'defend-the-arki:muted';
 /** Minimum seconds between two plays of the same sound. */
 const THROTTLE: Partial<Record<SoundName, number>> = { shoot: 0.09, collect: 0.05, capture: 0.1, split: 0.1, menuMove: 0.06 };
 

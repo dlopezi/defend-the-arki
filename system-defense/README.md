@@ -12,13 +12,13 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 
 - **Inglés por defecto.** El switch **EN | ES** cambia a español: está en la pantalla de título
   (abajo, junto al botón de sonido) y en *Options*, primera fila ("Language · Idioma").
-- La elección se guarda en el navegador (`localStorage`, clave `system-defense:lang`).
+- La elección se guarda en el navegador (`localStorage`, clave `defend-the-arki:lang`).
 - Código: `src/i18n.ts`. Cada texto se escribe en los dos idiomas: `t('Play', 'Jugar')`.
   Los textos largos (fichas de concepto, post-mortem) tienen una tabla por idioma en
   `src/learn/concepts.ts` y `src/learn/postmortem.ts`. Una prueba comprueba que las dos tablas
   tienen las mismas fichas.
-- Las claves del navegador siguen empezando por `system-defense:` (nombre antiguo), para no
-  perder los récords de los jugadores.
+- Todo lo que el juego guarda en el navegador (récords, idioma, sonido, fichas vistas) usa claves
+  que empiezan por `defend-the-arki:`.
 
 ## Móvil
 
