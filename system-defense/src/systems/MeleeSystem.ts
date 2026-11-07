@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import { ENCRYPT_TIME } from '../config';
 import type { System } from '../ecs/System';
 import { spawnSparks, spawnText } from '../game/factories';
@@ -27,7 +28,7 @@ export const MeleeSystem: System = {
         else {
           world.add(a.target, 'encrypted', { timer: ENCRYPT_TIME });
           const t = world.get(a.target, 'transform');
-          if (t) spawnText(world, t.x, t.y - 40, 'CIFRADO', '#f87171', 15);
+          if (t) spawnText(world, t.x, t.y - 40, tr('ENCRYPTED', 'CIFRADO'), '#f87171', 15);
           sound(ctx, 'encrypt');
         }
       }

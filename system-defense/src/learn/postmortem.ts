@@ -1,6 +1,7 @@
 import { DEFENSES, ENEMIES, MODES, type DefenseType, type EnemyType, type Mode } from '../config';
 import type { Entity, World } from '../ecs/World';
 import type { GameContext } from '../game/GameContext';
+import { pick, t, type Lang } from '../i18n';
 import { LINKS, type Link } from './concepts';
 
 export type CauseId =
@@ -32,7 +33,7 @@ interface CauseText {
   read: Link;
 }
 
-export const CAUSES: Record<CauseId, CauseText> = {
+const ES: Record<CauseId, CauseText> = {
   noDefense: {
     root: 'El carril no tenía ninguna defensa.',
     help: 'Pon al menos un Load Balancer en cada carril desde el principio.',
@@ -101,6 +102,82 @@ export const CAUSES: Record<CauseId, CauseText> = {
   },
 };
 
+const EN: Record<CauseId, CauseText> = {
+  noDefense: {
+    root: 'The lane had no defense at all.',
+    help: 'Put at least one Load Balancer in every lane from the start.',
+    lesson: 'Coverage: every way into the system needs protection. A single gap is enough.',
+    read: LINKS.primer,
+  },
+  wiped: {
+    root: 'The threats destroyed every defense in the lane.',
+    help: 'Put a wall (Redis or WAF) in front of the defenses that shoot, and replace it in time.',
+    lesson: 'Redundancy: if one piece falls, another one must stay up.',
+    read: LINKS.primer,
+  },
+  noDamage: {
+    root: 'The lane only had passive defenses (walls, Workers or queues). Nothing damaged the threats.',
+    help: 'Combine a wall with something that shoots: Load Balancer, Rate Limiter or CDN.',
+    lesson: 'A cache or a queue buys time, but it does not handle the load by itself.',
+    read: LINKS.overload,
+  },
+  sqliCache: {
+    root: 'The SQL Injection went through Redis: a cache does not check the content of requests.',
+    help: 'A WAF in that lane would have filtered the injection.',
+    lesson: 'Defense in depth: each layer protects against different things.',
+    read: LINKS.injection,
+  },
+  jumped: {
+    root: 'The Zero-Day jumped over the first defense of the lane.',
+    help: 'A WAF cannot be jumped. Having more than one defense per lane also helps.',
+    lesson: 'Defense in depth: do not trust a single layer.',
+    read: LINKS.zeroDay,
+  },
+  boss: {
+    root: 'Black Friday destroyed the defenses in one hit.',
+    help: 'Circuit Breaker when it gets close, Rate Limiter to slow it down, and more damage (LB v2, CDN).',
+    lesson: 'Capacity planning: predictable peaks are prepared in advance, with load tests.',
+    read: LINKS.overload,
+  },
+  encrypted: {
+    root: 'The Ransomware encrypted the defenses of the lane and they stopped working.',
+    help: 'Remove it before it arrives: shoot from far away and keep spare defenses.',
+    lesson: 'Resilience: keep copies and redundancy of whatever can go out of service.',
+    read: LINKS.ransomware,
+  },
+  slowloris: {
+    root: 'A Slowloris cut the firing rate of the lane in half.',
+    help: 'Remove it early: more damage in that lane, or a CDN in a lane next to it.',
+    lesson: 'Timeouts and connection limits protect your resources.',
+    read: LINKS.slowloris,
+  },
+  leak: {
+    root: 'The Memory Leak grew until it was too strong.',
+    help: 'Attack Memory Leaks as soon as they appear, before they grow.',
+    lesson: 'Watch trends: problems that grow slowly are easy to ignore.',
+    read: LINKS.memory,
+  },
+  botnet: {
+    root: 'The bots of a Botnet spread out and one got through.',
+    help: 'Rate Limiter to slow them down, and constant fire (LB v2) for the small bots.',
+    lesson: 'Distributed attacks need defenses that scale with the number of attackers.',
+    read: LINKS.botnet,
+  },
+  overwhelmed: {
+    root: 'The lane had defenses, but they were not enough for the traffic volume.',
+    help: 'More damage (v2 upgrades, CDN), Rate Limiter to buy time, and more Workers at the start.',
+    lesson: 'Capacity planning: measure the load and scale before you reach the limit.',
+    read: LINKS.overload,
+  },
+};
+
+const CAUSE_TABLES: Record<Lang, Record<CauseId, CauseText>> = { en: EN, es: ES };
+
+/** Why a threat got through, in the current language. */
+export function cause(id: CauseId): CauseText {
+  return pick(CAUSE_TABLES)[id];
+}
+
 /** Works out why a threat got through. Called by BreachSystem before the lane is cleared. */
 export function diagnose(world: World, ctx: GameContext, lane: number, enemy: Entity): CauseId {
   const type = world.req(enemy, 'enemy').type;
@@ -128,8 +205,9 @@ export function diagnose(world: World, ctx: GameContext, lane: number, enemy: En
 }
 
 export function describeIncident(i: Incident): string {
-  const when = i.wave > 0 ? `en la ola ${i.wave}` : 'antes de la primera ola';
-  return `"${ENEMIES[i.enemy].name}" cruzó el carril ${i.lane + 1} ${when}.`;
+  const name = ENEMIES[i.enemy].name;
+  if (i.wave > 0) return t(`"${name}" crossed lane ${i.lane + 1} in wave ${i.wave}.`, `"${name}" cruzó el carril ${i.lane + 1} en la ola ${i.wave}.`);
+  return t(`"${name}" crossed lane ${i.lane + 1} before the first wave.`, `"${name}" cruzó el carril ${i.lane + 1} antes de la primera ola.`);
 }
 
 /** Architecture lesson of the level, after losing. */
@@ -137,17 +215,26 @@ export function levelLessonLoss(mode: Mode): { text: string; read: Link } {
   switch (mode) {
     case 'monolith':
       return {
-        text: 'En un monolito, este único fallo tumbó todo el sistema (Single Point of Failure). En el Nivel 2, solo habría caído un servicio.',
+        text: t(
+          'In a monolith, this one failure brought the whole system down (Single Point of Failure). In Level 2, only one service would have fallen.',
+          'En un monolito, este único fallo tumbó todo el sistema (Single Point of Failure). En el Nivel 2, solo habría caído un servicio.',
+        ),
         read: LINKS.primer,
       };
     case 'microservices':
       return {
-        text: 'Los servicios aislados aguantaron los fallos uno a uno (patrón Bulkhead), pero al final cayeron todos.',
+        text: t(
+          'The isolated services held the failures one by one (Bulkhead pattern), but in the end they all fell.',
+          'Los servicios aislados aguantaron los fallos uno a uno (patrón Bulkhead), pero al final cayeron todos.',
+        ),
         read: LINKS.bulkhead,
       };
     case 'kubernetes':
       return {
-        text: 'Self-healing reinicia los pods caídos, pero no sirve si todos caen a la vez. Hace falta capacidad de sobra.',
+        text: t(
+          'Self-healing restarts fallen pods, but it does not help if they all fall at once. You need spare capacity.',
+          'Self-healing reinicia los pods caídos, pero no sirve si todos caen a la vez. Hace falta capacidad de sobra.',
+        ),
         read: LINKS.pods,
       };
   }
@@ -158,23 +245,35 @@ export function levelLessonWin(mode: Mode, lanesLost: number): { text: string; r
   switch (mode) {
     case 'monolith':
       return {
-        text: `Ganaste con un único punto de fallo (${MODES.monolith.name}). En sistemas reales es arriesgado: un solo error lo tumba todo.`,
+        text: t(
+          `You won with a single point of failure (${MODES.monolith.name}). In real systems it is risky: one error brings everything down.`,
+          `Ganaste con un único punto de fallo (${MODES.monolith.name}). En sistemas reales es arriesgado: un solo error lo tumba todo.`,
+        ),
         read: LINKS.primer,
       };
     case 'microservices':
       return {
         text:
           lanesLost > 0
-            ? `Cayeron ${lanesLost} servicio(s) y el resto siguió funcionando: eso es aislamiento de fallos (patrón Bulkhead).`
-            : 'No cayó ningún servicio. Con microservicios, un fallo habría afectado solo a un carril (patrón Bulkhead).',
+            ? t(
+                `${lanesLost} service(s) fell and the rest kept working: that is failure isolation (Bulkhead pattern).`,
+                `Cayeron ${lanesLost} servicio(s) y el resto siguió funcionando: eso es aislamiento de fallos (patrón Bulkhead).`,
+              )
+            : t(
+                'No service fell. With microservices, a failure would have hit only one lane (Bulkhead pattern).',
+                'No cayó ningún servicio. Con microservicios, un fallo habría afectado solo a un carril (patrón Bulkhead).',
+              ),
         read: LINKS.bulkhead,
       };
     case 'kubernetes':
       return {
         text:
           lanesLost > 0
-            ? `${lanesLost} pod(s) cayeron y volvieron solos: eso es self-healing.`
-            : 'Ningún pod cayó. Si hubiera caído alguno, Kubernetes lo habría reiniciado solo (self-healing).',
+            ? t(`${lanesLost} pod(s) fell and came back by themselves: that is self-healing.`, `${lanesLost} pod(s) cayeron y volvieron solos: eso es self-healing.`)
+            : t(
+                'No pod fell. If one had, Kubernetes would have restarted it by itself (self-healing).',
+                'Ningún pod cayó. Si hubiera caído alguno, Kubernetes lo habría reiniciado solo (self-healing).',
+              ),
         read: LINKS.pods,
       };
   }

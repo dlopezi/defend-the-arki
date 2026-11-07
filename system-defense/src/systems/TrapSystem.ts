@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import type { System } from '../ecs/System';
 import { spawnSparks, spawnText } from '../game/factories';
 import { sound } from '../game/GameContext';
@@ -36,14 +37,14 @@ export const TrapSystem: System = {
         if (enemy.type === 'blackFriday') {
           // Too big for the queue: the boss crushes it.
           world.req(e, 'health').hp = 0;
-          spawnText(world, t.x, t.y - 40, 'cola desbordada', '#fb923c', 13);
+          spawnText(world, t.x, t.y - 40, tr('queue overflow', 'cola desbordada'), '#fb923c', 13);
           break;
         }
         world.add(en, 'held', { timer: trap.hold, total: trap.hold });
         enemy.state = 'held';
         world.req(en, 'attacker').target = null;
         trap.captured = en;
-        spawnText(world, et.x, et.y - 44, 'ENCOLADO', '#fb923c', 13);
+        spawnText(world, et.x, et.y - 44, tr('QUEUED', 'ENCOLADO'), '#fb923c', 13);
         spawnSparks(world, et.x, et.y, '#fb923c', 8, 90);
         sound(ctx, 'capture');
         break;

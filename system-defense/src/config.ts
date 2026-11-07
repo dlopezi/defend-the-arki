@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 /* ---------- Board layout (logical canvas pixels) ---------- */
 export const CELL_W = 100;
 export const CELL_H = 100;
@@ -62,26 +64,46 @@ export interface ModeSpec {
   rollback: boolean;
 }
 
+// Texts are getters: they read the current language each time (see i18n.ts).
 export const MODES: Record<Mode, ModeSpec> = {
   monolith: {
     level: 1,
-    name: 'Monolito',
+    get name() {
+      return t('Monolith', 'Monolito');
+    },
     color: '#38bdf8',
-    rule: 'Una sola base. Si una amenaza cruza el límite en cualquier carril, cae todo el sistema (Single Point of Failure). Sin Rollback.',
+    get rule() {
+      return t(
+        'A single base. If a threat crosses the limit in any lane, the whole system goes down (Single Point of Failure). No Rollback.',
+        'Una sola base. Si una amenaza cruza el límite en cualquier carril, cae todo el sistema (Single Point of Failure). Sin Rollback.',
+      );
+    },
     rollback: false,
   },
   microservices: {
     level: 2,
-    name: 'Microservicios',
+    get name() {
+      return t('Microservices', 'Microservicios');
+    },
     color: '#34d399',
-    rule: '5 servicios independientes. Si cruza una amenaza, solo cae ese carril y sus defensas. Game Over cuando caen los 5.',
+    get rule() {
+      return t(
+        '5 independent services. If a threat gets through, only that lane and its defenses go down. Game Over when all 5 fall.',
+        '5 servicios independientes. Si cruza una amenaza, solo cae ese carril y sus defensas. Game Over cuando caen los 5.',
+      );
+    },
     rollback: true,
   },
   kubernetes: {
     level: 3,
     name: 'Kubernetes',
     color: '#818cf8',
-    rule: `Self-healing: un carril caído se reinicia solo en ${POD_RESTART_TIME} s (sin defensas). Game Over si los 5 caen a la vez.`,
+    get rule() {
+      return t(
+        `Self-healing: a fallen lane restarts by itself in ${POD_RESTART_TIME} s (without defenses). Game Over if all 5 fall at the same time.`,
+        `Self-healing: un carril caído se reinicia solo en ${POD_RESTART_TIME} s (sin defensas). Game Over si los 5 caen a la vez.`,
+      );
+    },
     rollback: true,
   },
 };
@@ -121,8 +143,12 @@ export const DEFENSES: Record<DefenseType, DefenseSpec> = {
     cooldown: 5,
     hotkey: '1',
     color: '#38bdf8',
-    desc: `Genera ${WORKER_AMOUNT} CU cada ${WORKER_INTERVAL} s`,
-    upgrade: `Genera ${WORKER_AMOUNT * 2} CU`,
+    get desc() {
+      return t(`Makes ${WORKER_AMOUNT} CU every ${WORKER_INTERVAL} s`, `Genera ${WORKER_AMOUNT} CU cada ${WORKER_INTERVAL} s`);
+    },
+    get upgrade() {
+      return t(`Makes ${WORKER_AMOUNT * 2} CU`, `Genera ${WORKER_AMOUNT * 2} CU`);
+    },
   },
   loadBalancer: {
     name: 'Load Balancer',
@@ -132,8 +158,12 @@ export const DEFENSES: Record<DefenseType, DefenseSpec> = {
     cooldown: 5,
     hotkey: '2',
     color: '#60a5fa',
-    desc: `Dispara paquetes HTTP 200 (${SHOT_DAMAGE} daño)`,
-    upgrade: 'Dispara 2 paquetes',
+    get desc() {
+      return t(`Shoots HTTP 200 packets (${SHOT_DAMAGE} damage)`, `Dispara paquetes HTTP 200 (${SHOT_DAMAGE} daño)`);
+    },
+    get upgrade() {
+      return t('Shoots 2 packets', 'Dispara 2 paquetes');
+    },
   },
   redis: {
     name: 'Redis Cache',
@@ -143,8 +173,12 @@ export const DEFENSES: Record<DefenseType, DefenseSpec> = {
     cooldown: 20,
     hotkey: '3',
     color: '#f87171',
-    desc: 'Muro con mucha vida: bloquea el tráfico',
-    upgrade: 'Vida ×2 y reparación total',
+    get desc() {
+      return t('Wall with a lot of health: blocks the traffic', 'Muro con mucha vida: bloquea el tráfico');
+    },
+    get upgrade() {
+      return t('Health ×2 and full repair', 'Vida ×2 y reparación total');
+    },
   },
   rateLimiter: {
     name: 'Rate Limiter',
@@ -154,8 +188,12 @@ export const DEFENSES: Record<DefenseType, DefenseSpec> = {
     cooldown: 7,
     hotkey: '4',
     color: '#a78bfa',
-    desc: 'Dispara 429: daña y ralentiza un 50%',
-    upgrade: 'Dispara 2 paquetes 429',
+    get desc() {
+      return t('Shoots 429: damages and slows by 50%', 'Dispara 429: daña y ralentiza un 50%');
+    },
+    get upgrade() {
+      return t('Shoots 2 packets of 429', 'Dispara 2 paquetes 429');
+    },
   },
   circuitBreaker: {
     name: 'Circuit Breaker',
@@ -165,7 +203,9 @@ export const DEFENSES: Record<DefenseType, DefenseSpec> = {
     cooldown: 30,
     hotkey: '5',
     color: '#facc15',
-    desc: 'Explota tras 1 s: elimina amenazas en 3×3',
+    get desc() {
+      return t('Blows up after 1 s: removes threats in a 3×3 area', 'Explota tras 1 s: elimina amenazas en 3×3');
+    },
     upgrade: null,
   },
   waf: {
@@ -176,8 +216,12 @@ export const DEFENSES: Record<DefenseType, DefenseSpec> = {
     cooldown: 25,
     hotkey: '6',
     color: '#2dd4bf',
-    desc: 'Muro alto: el Zero-Day no lo salta y frena SQL Injection',
-    upgrade: 'Vida ×1.5 y reparación total',
+    get desc() {
+      return t('Tall wall: the Zero-Day cannot jump it and it stops SQL Injection', 'Muro alto: el Zero-Day no lo salta y frena SQL Injection');
+    },
+    get upgrade() {
+      return t('Health ×1.5 and full repair', 'Vida ×1.5 y reparación total');
+    },
   },
   cdn: {
     name: 'CDN Edge',
@@ -187,8 +231,12 @@ export const DEFENSES: Record<DefenseType, DefenseSpec> = {
     cooldown: 8,
     hotkey: '7',
     color: '#f472b6',
-    desc: 'Dispara en 3 carriles a la vez',
-    upgrade: 'Daño ×2',
+    get desc() {
+      return t('Shoots in 3 lanes at once', 'Dispara en 3 carriles a la vez');
+    },
+    get upgrade() {
+      return t('Damage ×2', 'Daño ×2');
+    },
   },
   kafka: {
     name: 'Message Queue (Kafka)',
@@ -198,8 +246,12 @@ export const DEFENSES: Record<DefenseType, DefenseSpec> = {
     cooldown: 12,
     hotkey: '8',
     color: '#fb923c',
-    desc: `Atrapa a una amenaza ${KAFKA_HOLD} s. No bloquea el paso`,
-    upgrade: 'Atrapa 7 s y recarga más rápido',
+    get desc() {
+      return t(`Holds one threat for ${KAFKA_HOLD} s. Does not block the way`, `Atrapa a una amenaza ${KAFKA_HOLD} s. No bloquea el paso`);
+    },
+    get upgrade() {
+      return t('Holds for 7 s and recharges faster', 'Atrapa 7 s y recarga más rápido');
+    },
   },
 };
 
@@ -242,17 +294,17 @@ export interface EnemySpec {
 }
 
 export const ENEMIES: Record<EnemyType, EnemySpec> = {
-  normal: { name: 'Tráfico Normal', tag: 'GET', color: '#94a3b8', hp: 120, speed: 20, dps: 40, width: 44, height: 56, desc: 'Velocidad media, poca vida' },
-  scraper: { name: 'Scraper Bot', tag: 'BOT', color: '#fb923c', hp: 320, speed: 20, dps: 40, width: 50, height: 62, desc: 'Velocidad media, vida media-alta' },
-  ddos: { name: 'Ataque DDoS', tag: 'DDoS', color: '#ef4444', hp: 1000, speed: 10, dps: 70, width: 74, height: 74, desc: 'Lento, vida muy alta' },
-  zeroDay: { name: 'Zero-Day Exploit', tag: '0day', color: '#e879f9', hp: 160, speed: 48, dps: 40, width: 42, height: 54, desc: 'Rápido. Salta la primera defensa (no el WAF)' },
-  blackFriday: { name: 'Black Friday Traffic', tag: 'BF', color: '#facc15', hp: 5000, speed: 5, dps: 0, width: 110, height: 120, desc: 'Jefe. Destruye defensas de un golpe' },
-  sqli: { name: 'SQL Injection', tag: 'SQLi', color: '#84cc16', hp: 200, speed: 24, dps: 40, width: 44, height: 54, desc: 'Atraviesa Redis (cache miss). El WAF lo frena' },
-  botnet: { name: 'Botnet', tag: 'Botnet', color: '#f59e0b', hp: 420, speed: 18, dps: 40, width: 62, height: 58, desc: 'Al morir se divide en 3 bots' },
-  botlet: { name: 'Bot de botnet', tag: 'bot', color: '#fbbf24', hp: 60, speed: 32, dps: 20, width: 26, height: 30, desc: 'Bot pequeño y rápido' },
-  slowloris: { name: 'Slowloris', tag: 'Slowloris', color: '#38bdf8', hp: 520, speed: 8, dps: 30, width: 52, height: 64, desc: 'Muy lento. En su carril, las defensas disparan la mitad' },
-  ransomware: { name: 'Ransomware', tag: 'Ransom', color: '#dc2626', hp: 260, speed: 24, dps: 30, width: 46, height: 56, desc: `Cifra la defensa que ataca: inactiva ${ENCRYPT_TIME} s` },
-  memoryLeak: { name: 'Memory Leak', tag: 'Leak', color: '#a855f7', hp: 150, speed: 16, dps: 40, width: 40, height: 44, desc: 'Crece y gana vida con el tiempo' },
+  normal: { get name() { return t('Normal Traffic', 'Tráfico Normal'); }, tag: 'GET', color: '#94a3b8', hp: 120, speed: 20, dps: 40, width: 44, height: 56, get desc() { return t('Medium speed, low health', 'Velocidad media, poca vida'); } },
+  scraper: { name: 'Scraper Bot', tag: 'BOT', color: '#fb923c', hp: 320, speed: 20, dps: 40, width: 50, height: 62, get desc() { return t('Medium speed, medium-high health', 'Velocidad media, vida media-alta'); } },
+  ddos: { get name() { return t('DDoS Attack', 'Ataque DDoS'); }, tag: 'DDoS', color: '#ef4444', hp: 1000, speed: 10, dps: 70, width: 74, height: 74, get desc() { return t('Slow, very high health', 'Lento, vida muy alta'); } },
+  zeroDay: { name: 'Zero-Day Exploit', tag: '0day', color: '#e879f9', hp: 160, speed: 48, dps: 40, width: 42, height: 54, get desc() { return t('Fast. Jumps over the first defense (not the WAF)', 'Rápido. Salta la primera defensa (no el WAF)'); } },
+  blackFriday: { name: 'Black Friday Traffic', tag: 'BF', color: '#facc15', hp: 5000, speed: 5, dps: 0, width: 110, height: 120, get desc() { return t('Boss. Destroys defenses in one hit', 'Jefe. Destruye defensas de un golpe'); } },
+  sqli: { name: 'SQL Injection', tag: 'SQLi', color: '#84cc16', hp: 200, speed: 24, dps: 40, width: 44, height: 54, get desc() { return t('Goes through Redis (cache miss). The WAF stops it', 'Atraviesa Redis (cache miss). El WAF lo frena'); } },
+  botnet: { name: 'Botnet', tag: 'Botnet', color: '#f59e0b', hp: 420, speed: 18, dps: 40, width: 62, height: 58, get desc() { return t('Splits into 3 bots when it dies', 'Al morir se divide en 3 bots'); } },
+  botlet: { get name() { return t('Botnet bot', 'Bot de botnet'); }, tag: 'bot', color: '#fbbf24', hp: 60, speed: 32, dps: 20, width: 26, height: 30, get desc() { return t('Small, fast bot', 'Bot pequeño y rápido'); } },
+  slowloris: { name: 'Slowloris', tag: 'Slowloris', color: '#38bdf8', hp: 520, speed: 8, dps: 30, width: 52, height: 64, get desc() { return t('Very slow. In its lane, defenses shoot half as often', 'Muy lento. En su carril, las defensas disparan la mitad'); } },
+  ransomware: { name: 'Ransomware', tag: 'Ransom', color: '#dc2626', hp: 260, speed: 24, dps: 30, width: 46, height: 56, get desc() { return t(`Encrypts the defense it attacks: off for ${ENCRYPT_TIME} s`, `Cifra la defensa que ataca: inactiva ${ENCRYPT_TIME} s`); } },
+  memoryLeak: { name: 'Memory Leak', tag: 'Leak', color: '#a855f7', hp: 150, speed: 16, dps: 40, width: 40, height: 44, get desc() { return t('Grows and gains health over time', 'Crece y gana vida con el tiempo'); } },
 };
 
 /** Order used in the menu guide and wave preview (botlets come from botnets). */

@@ -1,6 +1,7 @@
 import { DEFENSE_ORDER, DEFENSES, ENEMIES, LANES, MODES, SERVICE_NAMES, TOTAL_WAVES, type DefenseType, type EnemyType, type Tool } from '../config';
 import type { GameContext } from '../game/GameContext';
 import { countByType } from '../game/waves';
+import { onLangChange, t } from '../i18n';
 import { drawDefense } from '../render/sprites';
 
 export interface HudCallbacks {
@@ -53,6 +54,9 @@ export class Hud {
   private readonly pauseBtn: HTMLButtonElement;
   private readonly speedBtn: HTMLButtonElement;
   private readonly muteBtn: HTMLButtonElement;
+  private readonly menuBtn: HTMLButtonElement;
+  private readonly cuBox: HTMLElement;
+  private readonly shovelName: HTMLElement;
   private readonly cards = new Map<Tool, CardRefs>();
   private lastCu = -1;
   private lastPreview = '';
@@ -62,7 +66,7 @@ export class Hud {
     const hud = el('header', 'hud');
 
     const cu = el('div', 'cu-box');
-    cu.title = 'Compute Units: haz clic en los hexágonos CU para recogerlos';
+    this.cuBox = cu;
     cu.append(el('span', 'cu-icon', '⬢'));
     this.cuValue = el('span', 'cu-value', '0');
     const cuText = el('div', 'cu-text');
@@ -72,7 +76,7 @@ export class Hud {
     const cards = el('div', 'cards');
     for (const type of DEFENSE_ORDER) {
       const spec = DEFENSES[type];
-      const card = button('card', '', `${spec.name} — ${spec.desc} (tecla ${spec.hotkey})`, () => cb.onSelect(type));
+      const card = button('card', '', '', () => cb.onSelect(type));
       card.style.setProperty('--accent', spec.color);
       const icon = el('canvas', 'card-icon');
       this.paintIcon(icon, type);
@@ -81,18 +85,20 @@ export class Hud {
       cards.append(card);
       this.cards.set(type, { el: card, cd });
     }
-    const shovel = button('card card-shovel', '', 'Desmantelar una defensa (tecla Q)', () => cb.onSelect('shovel'));
+    const shovel = button('card card-shovel', '', '', () => cb.onSelect('shovel'));
     shovel.style.setProperty('--accent', '#94a3b8');
     const shovelCd = el('span', 'card-cd');
-    shovel.append(el('span', 'card-key', 'Q'), el('span', 'shovel-icon', '✕'), el('span', 'card-name', 'Desmantelar'), el('span', 'card-cost', '—'), shovelCd);
+    this.shovelName = el('span', 'card-name');
+    shovel.append(el('span', 'card-key', 'Q'), el('span', 'shovel-icon', '✕'), this.shovelName, el('span', 'card-cost', '—'), shovelCd);
     cards.append(shovel);
     this.cards.set('shovel', { el: shovel, cd: shovelCd });
 
     const actions = el('div', 'actions');
-    this.pauseBtn = button('btn-small', 'Pausa', 'Pausa (P)', () => cb.onPause());
-    this.speedBtn = button('btn-small', '×2', 'Velocidad doble (F)', () => cb.onSpeed());
-    this.muteBtn = button('btn-small', '🔊', 'Sonido (M)', () => cb.onMute());
-    actions.append(this.pauseBtn, this.speedBtn, this.muteBtn, button('btn-small', 'Menú', 'Volver al menú', () => cb.onMenu()));
+    this.pauseBtn = button('btn-small', '', '', () => cb.onPause());
+    this.speedBtn = button('btn-small', '×2', '', () => cb.onSpeed());
+    this.muteBtn = button('btn-small', '🔊', '', () => cb.onMute());
+    this.menuBtn = button('btn-small', '', '', () => cb.onMenu());
+    actions.append(this.pauseBtn, this.speedBtn, this.muteBtn, this.menuBtn);
 
     hud.append(cu, cards, actions);
 
@@ -115,6 +121,27 @@ export class Hud {
     strip.append(this.modeEl, this.waveEl, bar, preview, this.lanesEl);
 
     this.root.append(hud, strip);
+    this.relabel();
+    onLangChange(() => this.relabel());
+  }
+
+  /** Fixed labels and tooltips, in the current language. */
+  private relabel(): void {
+    this.cuBox.title = t('Compute Units: click the CU hexagons to collect them', 'Compute Units: haz clic en los hexágonos CU para recogerlos');
+    for (const type of DEFENSE_ORDER) {
+      const spec = DEFENSES[type];
+      const card = this.cards.get(type);
+      if (card) card.el.title = `${spec.name} — ${spec.desc} (${t('key', 'tecla')} ${spec.hotkey})`;
+    }
+    const shovel = this.cards.get('shovel');
+    if (shovel) shovel.el.title = t('Dismantle a defense (key Q)', 'Desmantelar una defensa (tecla Q)');
+    this.shovelName.textContent = t('Dismantle', 'Desmantelar');
+    this.pauseBtn.title = t('Pause (P)', 'Pausa (P)');
+    this.speedBtn.title = t('Double speed (F)', 'Velocidad doble (F)');
+    this.muteBtn.title = t('Sound (M)', 'Sonido (M)');
+    this.menuBtn.textContent = t('Menu', 'Menú');
+    this.menuBtn.title = t('Back to the menu', 'Volver al menú');
+    this.lastPreview = '';
   }
 
   /** Small red shake on a card that cannot be used now. */
@@ -146,25 +173,25 @@ export class Hud {
     this.cards.get('shovel')?.el.classList.toggle('selected', ctx.selected === 'shovel');
 
     const mode = MODES[ctx.mode];
-    this.modeEl.textContent = `Nivel ${mode.level} · ${mode.name}`;
+    this.modeEl.textContent = `${t('Level', 'Nivel')} ${mode.level} · ${mode.name}`;
     this.modeEl.style.color = mode.color;
 
     const w = ctx.wave;
     let text: string;
     let progress: number;
     let previewQueue = w.next.queue;
-    let previewLabel = 'Próxima ola:';
+    let previewLabel = t('Next wave:', 'Próxima ola:');
     if (w.phase === 'prep') {
-      text = `Ola 1/${TOTAL_WAVES} en ${Math.ceil(w.timer)} s`;
+      text = t(`Wave 1/${TOTAL_WAVES} in ${Math.ceil(w.timer)} s`, `Ola 1/${TOTAL_WAVES} en ${Math.ceil(w.timer)} s`);
       progress = 0;
     } else if (w.phase === 'break') {
-      text = `Ola ${w.number + 1}/${TOTAL_WAVES} en ${Math.ceil(w.timer)} s`;
+      text = t(`Wave ${w.number + 1}/${TOTAL_WAVES} in ${Math.ceil(w.timer)} s`, `Ola ${w.number + 1}/${TOTAL_WAVES} en ${Math.ceil(w.timer)} s`);
       progress = w.number / TOTAL_WAVES;
     } else {
-      text = `Ola ${w.number}/${TOTAL_WAVES}`;
+      text = `${t('Wave', 'Ola')} ${w.number}/${TOTAL_WAVES}`;
       progress = (w.number - 1 + w.spawned / Math.max(1, w.total)) / TOTAL_WAVES;
       previewQueue = w.queue.slice(w.spawned);
-      previewLabel = previewQueue.length > 0 ? 'Por llegar:' : 'Ola en curso';
+      previewLabel = previewQueue.length > 0 ? t('Coming:', 'Por llegar:') : t('Wave in progress', 'Ola en curso');
     }
     this.waveEl.textContent = text;
     this.waveBar.style.width = `${Math.min(100, progress * 100)}%`;
@@ -178,7 +205,7 @@ export class Hud {
       d.classList.toggle('restarting', restarting);
     });
 
-    this.pauseBtn.textContent = ctx.status === 'paused' ? 'Seguir' : 'Pausa';
+    this.pauseBtn.textContent = ctx.status === 'paused' ? t('Resume', 'Seguir') : t('Pause', 'Pausa');
     this.speedBtn.classList.toggle('active', extras.speed > 1);
     this.muteBtn.textContent = extras.muted ? '🔇' : '🔊';
   }

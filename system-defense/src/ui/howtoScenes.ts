@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import { DEFENSES, ENEMIES, type DefenseType, type EnemyType } from '../config';
 import { drawCU, drawDefense, drawEnemy, drawProjectile, drawRollback } from '../render/sprites';
 import { drawPlus, ease, type G } from './anim';
@@ -238,7 +239,7 @@ function sceneUpgrade(g: G, t: number): void {
   const dy = 38 + cell / 2 + 2;
   const up = T >= 1.7;
   defense(g, 'loadBalancer', dx, dy, t, 0.75, { level: up ? 2 : 1 });
-  text(g, up ? 'v2 · dispara 2 paquetes' : 'v1', dx, 128, 10, up ? '#facc15' : '#94a3b8', 'center', 900);
+  text(g, up ? tr('v2 · shoots 2 packets', 'v2 · dispara 2 paquetes') : 'v1', dx, 128, 10, up ? '#facc15' : '#94a3b8', 'center', 900);
   if (up && T < 2.5) {
     const k = (T - 1.7) / 0.8;
     g.strokeStyle = `rgba(250,204,21,${1 - k})`;
@@ -253,7 +254,7 @@ function sceneUpgrade(g: G, t: number): void {
     box(g, 162, 44, 152, 62, 8, '#0f1a33', '#38bdf8', 1.5);
     text(g, 'Load Balancer', 238, 58, 9, '#93c5fd', 'center', 800);
     box(g, 168, 70, 140, 26, 6, '#854d0e', '#facc15', 1.5);
-    text(g, '⬆ Mejorar a v2 · 100 CU', 238, 83.5, 8.5, '#fef9c3', 'center', 900);
+    text(g, `⬆ ${tr('Upgrade to v2', 'Mejorar a v2')} · 100 CU`, 238, 83.5, 8.5, '#fef9c3', 'center', 900);
   }
   const toDef = ease(T, 0.1, 0.75);
   const toBtn = ease(T, 1.0, 1.55);
@@ -299,7 +300,12 @@ function sceneRollback(g: G, t: number): void {
   g.save();
   drawRollback(g, rbX, laneY, running, t);
   g.restore();
-  const msg = T < trigger ? 'Ctrl + Z espera junto a la base' : running ? 'Ctrl + Z barre el carril…' : 'Ctrl + Z usado: carril limpio';
+  const msg =
+    T < trigger
+      ? tr('Ctrl + Z waits next to the base', 'Ctrl + Z espera junto a la base')
+      : running
+        ? tr('Ctrl + Z sweeps the lane…', 'Ctrl + Z barre el carril…')
+        : tr('Ctrl + Z used: lane clear', 'Ctrl + Z usado: carril limpio');
   text(g, msg, SCENE_W / 2, 24, 10, '#67e8f9', 'center', 800);
 }
 
@@ -312,7 +318,7 @@ function sceneLevels(g: G, t: number): void {
   const cross = 0.45;
   const crossed = p >= cross;
   const cols: { title: string; color: string }[] = [
-    { title: 'Monolito', color: '#38bdf8' },
+    { title: tr('Monolith', 'Monolito'), color: '#38bdf8' },
     { title: 'Microserv.', color: '#34d399' },
     { title: 'Kubernetes', color: '#818cf8' },
   ];
@@ -382,7 +388,11 @@ function sceneLevels(g: G, t: number): void {
       g.fill();
     }
   });
-  const msg = !crossed ? 'Una amenaza cruza el límite…' : p < 0.85 ? 'Monolito: cae todo · Micro: cae 1 carril · K8s: se reinicia' : 'Kubernetes: el carril vuelve a funcionar';
+  const msg = !crossed
+    ? tr('A threat crosses the limit…', 'Una amenaza cruza el límite…')
+    : p < 0.85
+      ? tr('Monolith: all down · Micro: 1 lane down · K8s: restarts', 'Monolito: cae todo · Micro: cae 1 carril · K8s: se reinicia')
+      : tr('Kubernetes: the lane works again', 'Kubernetes: el carril vuelve a funcionar');
   text(g, msg, SCENE_W / 2, SCENE_H - 10, 8.5, '#cbd5e1', 'center', 700);
 }
 
@@ -393,10 +403,58 @@ export interface HowtoStep {
 }
 
 export const HOWTO_STEPS: HowtoStep[] = [
-  { title: 'Recoge Compute Units', text: 'Haz clic en los ⬢ CU que caen del cielo. Los Worker Nodes también crean CU.', draw: sceneCollect },
-  { title: 'Coloca defensas', text: 'Elige una carta arriba y haz clic en una celda libre. Cuesta CU y la carta tarda en recargar.', draw: scenePlace },
-  { title: 'Frena las amenazas', text: 'Las defensas disparan solas en su carril. Si una amenaza llega a la izquierda, la base cae.', draw: sceneDefend },
-  { title: 'Mejora a v2', text: 'Haz clic en una defensa colocada para mejorarla. Cuesta lo mismo que la defensa.', draw: sceneUpgrade },
-  { title: 'Rollback (niveles 2 y 3)', text: 'Cada carril tiene un Ctrl + Z: si una amenaza llega a la base, limpia el carril una vez.', draw: sceneRollback },
-  { title: 'Cada nivel cambia el Game Over', text: 'Monolito: cae todo. Microservicios: cae un carril. Kubernetes: el carril se reinicia solo.', draw: sceneLevels },
+  {
+    get title() {
+      return tr('Collect Compute Units', 'Recoge Compute Units');
+    },
+    get text() {
+      return tr('Click the ⬢ CU that fall from the sky. Worker Nodes also make CU.', 'Haz clic en los ⬢ CU que caen del cielo. Los Worker Nodes también crean CU.');
+    },
+    draw: sceneCollect,
+  },
+  {
+    get title() {
+      return tr('Place defenses', 'Coloca defensas');
+    },
+    get text() {
+      return tr('Choose a card at the top and click a free cell. It costs CU and the card takes time to recharge.', 'Elige una carta arriba y haz clic en una celda libre. Cuesta CU y la carta tarda en recargar.');
+    },
+    draw: scenePlace,
+  },
+  {
+    get title() {
+      return tr('Stop the threats', 'Frena las amenazas');
+    },
+    get text() {
+      return tr('Defenses shoot by themselves in their lane. If a threat reaches the left side, the base falls.', 'Las defensas disparan solas en su carril. Si una amenaza llega a la izquierda, la base cae.');
+    },
+    draw: sceneDefend,
+  },
+  {
+    get title() {
+      return tr('Upgrade to v2', 'Mejora a v2');
+    },
+    get text() {
+      return tr('Click a placed defense to upgrade it. It costs the same as the defense.', 'Haz clic en una defensa colocada para mejorarla. Cuesta lo mismo que la defensa.');
+    },
+    draw: sceneUpgrade,
+  },
+  {
+    get title() {
+      return tr('Rollback (levels 2 and 3)', 'Rollback (niveles 2 y 3)');
+    },
+    get text() {
+      return tr('Each lane has a Ctrl + Z: if a threat reaches the base, it clears the lane once.', 'Cada carril tiene un Ctrl + Z: si una amenaza llega a la base, limpia el carril una vez.');
+    },
+    draw: sceneRollback,
+  },
+  {
+    get title() {
+      return tr('Each level changes the Game Over', 'Cada nivel cambia el Game Over');
+    },
+    get text() {
+      return tr('Monolith: everything falls. Microservices: one lane falls. Kubernetes: the lane restarts by itself.', 'Monolito: cae todo. Microservicios: cae un carril. Kubernetes: el carril se reinicia solo.');
+    },
+    draw: sceneLevels,
+  },
 ];

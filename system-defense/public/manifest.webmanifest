@@ -1,8 +1,8 @@
 {
-  "name": "System Defense",
-  "short_name": "System Defense",
-  "description": "Tower defense de arquitectura de sistemas.",
-  "lang": "es",
+  "name": "Defend the Arki",
+  "short_name": "Defend the Arki",
+  "description": "Systems architecture tower defense.",
+  "lang": "en",
   "start_url": "/",
   "scope": "/",
   "display": "fullscreen",

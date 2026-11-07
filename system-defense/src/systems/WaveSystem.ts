@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { ENEMIES, LANES, TOTAL_WAVES } from '../config';
 import type { System } from '../ecs/System';
 import { createEnemy } from '../game/factories';
@@ -22,7 +23,12 @@ function startWave(ctx: GameContext): void {
   w.phase = 'spawning';
   if (w.number < TOTAL_WAVES) w.next = buildWave(w.number + 1);
   const last = w.number === TOTAL_WAVES;
-  pushBanner(ctx, last ? `OLA FINAL ${w.number}` : `OLA ${w.number}`, last ? '#f87171' : '#38bdf8', `${w.total} amenazas entrantes`);
+  pushBanner(
+    ctx,
+    last ? t(`FINAL WAVE ${w.number}`, `OLA FINAL ${w.number}`) : `${t('WAVE', 'OLA')} ${w.number}`,
+    last ? '#f87171' : '#38bdf8',
+    t(`${w.total} incoming threats`, `${w.total} amenazas entrantes`),
+  );
   sound(ctx, 'wave');
 }
 
@@ -54,11 +60,11 @@ export const WaveSystem: System = {
         createEnemy(world, type, randomAliveLane(ctx), w.hpScale);
         w.spawned += 1;
         if (w.spawned === w.surgeAt) {
-          pushBanner(ctx, '¡PICO DE TRÁFICO!', '#fb923c', 'Llega una ráfaga de peticiones', 2);
+          pushBanner(ctx, t('TRAFFIC SPIKE!', '¡PICO DE TRÁFICO!'), '#fb923c', t('A burst of requests is coming', 'Llega una ráfaga de peticiones'), 2);
           sound(ctx, 'wave');
         }
         if (type === 'blackFriday') {
-          pushBanner(ctx, ENEMIES.blackFriday.name.toUpperCase(), '#facc15', 'Jefe: destruye defensas de un golpe', 2.6);
+          pushBanner(ctx, ENEMIES.blackFriday.name.toUpperCase(), '#facc15', t('Boss: destroys defenses in one hit', 'Jefe: destruye defensas de un golpe'), 2.6);
         }
         const surge = w.spawned >= w.surgeAt;
         w.spawnTimer = w.interval * (surge ? 0.3 : 0.7 + Math.random() * 0.6);
@@ -75,11 +81,11 @@ export const WaveSystem: System = {
         if (remaining === 0) {
           if (w.number >= TOTAL_WAVES) {
             ctx.status = 'victory';
-            ctx.endReason = 'Todas las olas fueron mitigadas. El sistema escala.';
+            ctx.endReason = t('Every wave was mitigated. The system scales.', 'Todas las olas fueron mitigadas. El sistema escala.');
             sound(ctx, 'victory');
             return;
           }
-          pushBanner(ctx, `OLA ${w.number} MITIGADA`, '#4ade80', `Siguiente ola en ${BREAK_TIME} s`);
+          pushBanner(ctx, t(`WAVE ${w.number} MITIGATED`, `OLA ${w.number} MITIGADA`), '#4ade80', t(`Next wave in ${BREAK_TIME} s`, `Siguiente ola en ${BREAK_TIME} s`));
           w.phase = 'break';
           w.timer = BREAK_TIME;
         } else if (w.timer <= 0 && w.number < TOTAL_WAVES) {

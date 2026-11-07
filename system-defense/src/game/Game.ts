@@ -1,4 +1,5 @@
 import { Sfx } from '../audio/Sfx';
+import { onLangChange, t } from '../i18n';
 import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, type Mode, type Tool } from '../config';
 import { World } from '../ecs/World';
 import { RenderSystem } from '../render/RenderSystem';
@@ -27,7 +28,7 @@ export class Game {
   private speed = 1;
   private learnEnabled = loadEnabled();
   private readonly shell: HTMLElement;
-  /** True when the player left a running game with the "Menú" button. */
+  /** True when the player left a running game with the "Menu" button. */
   private suspended = false;
   private readonly portrait: MediaQueryList | null =
     typeof window.matchMedia === 'function' ? window.matchMedia(PORTRAIT_PHONE) : null;
@@ -104,11 +105,11 @@ export class Game {
     const spec = MODES[mode];
     if (spec.rollback) for (let lane = 0; lane < LANES; lane++) createRollback(this.world, lane);
     const subs: Record<Mode, string> = {
-      monolith: 'Un solo fallo en cualquier carril tumba todo el sistema',
-      microservices: 'Cada carril es un servicio independiente',
-      kubernetes: 'Los carriles caídos se reinician solos',
+      monolith: t('One failure in any lane brings the whole system down', 'Un solo fallo en cualquier carril tumba todo el sistema'),
+      microservices: t('Each lane is an independent service', 'Cada carril es un servicio independiente'),
+      kubernetes: t('Fallen lanes restart by themselves', 'Los carriles caídos se reinician solos'),
     };
-    pushBanner(this.ctx, `NIVEL ${spec.level} · ${spec.name.toUpperCase()}`, spec.color, subs[mode], 3);
+    pushBanner(this.ctx, `${t('LEVEL', 'NIVEL')} ${spec.level} · ${spec.name.toUpperCase()}`, spec.color, subs[mode], 3);
     this.suspended = false;
     this.overlays.show('none');
     this.setView('game');
@@ -118,11 +119,15 @@ export class Game {
   private rotateHint(): HTMLElement {
     const el = document.createElement('div');
     el.className = 'rotate';
-    el.innerHTML = `<div class="rotate-phone" aria-hidden="true"></div>
-      <strong>Gira el móvil</strong>
-      <p>System Defense se juega en horizontal.</p>
-      <button class="btn" type="button">Volver al menú</button>`;
-    el.querySelector('button')?.addEventListener('click', () => this.toMenu());
+    const fill = () => {
+      el.innerHTML = `<div class="rotate-phone" aria-hidden="true"></div>
+        <strong>${t('Turn your phone', 'Gira el móvil')}</strong>
+        <p>${t('Defend the Arki is played in landscape.', 'Defend the Arki se juega en horizontal.')}</p>
+        <button class="btn" type="button">${t('Back to the menu', 'Volver al menú')}</button>`;
+      el.querySelector('button')?.addEventListener('click', () => this.toMenu());
+    };
+    fill();
+    onLangChange(fill);
     return el;
   }
 
@@ -131,7 +136,7 @@ export class Game {
     this.shell.className = `shell view-${view}`;
   }
 
-  /** "Menú": a running game is paused and kept, so it can be continued. */
+  /** "Menu": a running game is paused and kept, so it can be continued. */
   private toMenu(): void {
     const ctx = this.ctx;
     const running = ctx.status === 'playing' || ctx.status === 'paused';
@@ -232,7 +237,7 @@ export class Game {
     try {
       this.tick(now);
     } catch (err) {
-      if (!this.reported) console.error('System Defense: frame error', err);
+      if (!this.reported) console.error('Defend the Arki: frame error', err);
       this.reported = true;
     }
   };

@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import { ENEMIES, type DefenseType, type EnemyType } from '../config';
 import { drawCU, drawDefense, drawEnemy, drawProjectile } from '../render/sprites';
 import { ease, type G } from './anim';
@@ -120,10 +121,10 @@ function header(g: G, W: number, t: number): void {
   g.textBaseline = 'middle';
   g.textAlign = 'left';
   g.fillStyle = '#38bdf8';
-  g.fillText('◀ DEFENSAS', 24, 30);
+  g.fillText(tr('◀ DEFENSES', '◀ DEFENSAS'), 24, 30);
   g.textAlign = 'right';
   g.fillStyle = '#f87171';
-  g.fillText('AMENAZAS ▶', W - 24, 30);
+  g.fillText(tr('THREATS ▶', 'AMENAZAS ▶'), W - 24, 30);
   // "VS" badge: half blue, half red, with a glow line to each side
   const cx = W / 2;
   const cy = 30;

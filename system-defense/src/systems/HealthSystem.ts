@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import type { System } from '../ecs/System';
 import { createEnemy, spawnEffect, spawnSparks, spawnText } from '../game/factories';
 import { sound } from '../game/GameContext';
@@ -18,7 +19,7 @@ export const HealthSystem: System = {
         spawnSparks(world, t.x, t.y, boss ? '#facc15' : '#f87171', boss ? 40 : 10, boss ? 300 : 150);
         if (boss) {
           spawnEffect(world, 'explosion', t.x, t.y, '#facc15', { size: 180, duration: 0.8 });
-          spawnText(world, t.x, t.y - 60, 'BLACK FRIDAY MITIGADO', '#facc15', 18);
+          spawnText(world, t.x, t.y - 60, tr('BLACK FRIDAY MITIGATED', 'BLACK FRIDAY MITIGADO'), '#facc15', 18);
           ctx.shake = Math.max(ctx.shake, 16);
           sound(ctx, 'explode');
         }
@@ -37,7 +38,7 @@ export const HealthSystem: System = {
         ctx.laneLosses[cell.lane]++;
         if (ctx.inspect && ctx.inspect.lane === cell.lane && ctx.inspect.col === cell.col) ctx.inspect = null;
         spawnSparks(world, t.x, t.y, '#94a3b8', 12, 160);
-        spawnText(world, t.x, t.y - 20, 'caído', '#f87171', 13);
+        spawnText(world, t.x, t.y - 20, tr('down', 'caído'), '#f87171', 13);
       }
       world.destroy(e);
     }

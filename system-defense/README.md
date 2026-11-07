@@ -1,4 +1,4 @@
-# System Defense
+# Defend the Arki
 
 Tower defense de arquitectura de sistemas (estilo Plants vs Zombies). Defiendes la base con
 Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-Day y Black Friday.
@@ -6,13 +6,25 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 - Juego estático: HTML + JS + CSS. **No hay servidor de juego ni base de datos.**
   Los récords y opciones se guardan en el navegador (localStorage).
 - Motor: TypeScript sin frameworks, patrón ECS, bucle fijo a 60 Hz, Canvas 2D.
-- Tamaño de producción: unos **47 kB comprimidos** (index.html + 1 JS + 1 CSS + icono).
+- Tamaño de producción: unos **54 kB comprimidos** con gzip (index.html + 1 JS + 1 CSS + icono), con los dos idiomas.
+
+## Idiomas
+
+- **Inglés por defecto.** El switch **EN | ES** cambia a español: está en la pantalla de título
+  (abajo, junto al botón de sonido) y en *Options*, primera fila ("Language · Idioma").
+- La elección se guarda en el navegador (`localStorage`, clave `system-defense:lang`).
+- Código: `src/i18n.ts`. Cada texto se escribe en los dos idiomas: `t('Play', 'Jugar')`.
+  Los textos largos (fichas de concepto, post-mortem) tienen una tabla por idioma en
+  `src/learn/concepts.ts` y `src/learn/postmortem.ts`. Una prueba comprueba que las dos tablas
+  tienen las mismas fichas.
+- Las claves del navegador siguen empezando por `system-defense:` (nombre antiguo), para no
+  perder los récords de los jugadores.
 
 ## Móvil
 
 - El juego se juega **en horizontal**. En horizontal, el tablero ocupa todo el alto de la pantalla:
   las defensas van en una columna a la izquierda y la barra de la ola arriba.
-- En un móvil en vertical, la partida se pausa y aparece "Gira el móvil".
+- En un móvil en vertical, la partida se pausa y aparece "Turn your phone" ("Gira el móvil").
 - "Añadir a pantalla de inicio" (iPhone y Android) abre el juego sin las barras del navegador
   (`public/manifest.webmanifest` y los iconos de `public/icons/`).
 - Para ver los FPS en producción, abre la URL con `?debug`.
@@ -64,7 +76,7 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 | Carga HTTP, Docker + nginx, 1.000 clientes | ~3.500–5.000 peticiones/s, **0 errores**, nginx al 11–43 % de 1 CPU |
 
 En la prueba de Docker, el límite fue el generador de carga (Node en el mismo portátil), no nginx.
-Un jugador descarga unos 47 kB una sola vez; después el juego funciona sin servidor.
+Un jugador descarga unos 54 kB una sola vez; después el juego funciona sin servidor.
 
 ## Despliegue
 
@@ -73,7 +85,7 @@ Un jugador descarga unos 47 kB una sola vez; después el juego funciona sin serv
 - **Dirección:** https://defend.thearki.com (copia gratis de Firebase: https://defend-the-arki.web.app).
 - **Proyecto GCP:** `defend-the-arki`, **sin cuenta de facturación** (plan Spark): no puede generar cobros.
 - **Coste:** 0. El plan gratis da 10 GB de almacenamiento y 360 MB/día de tráfico
-  (unos 7.600 jugadores nuevos al día con 47 kB cada uno). Si se pasa, el sitio puede dejar de
+  (unos 6.600 jugadores nuevos al día con 54 kB cada uno). Si se pasa, el sitio puede dejar de
   responder hasta que se renueve la cuota: entonces hay que pasar a Blaze (pago por uso,
   0,15 USD/GB) con una alerta de presupuesto.
 - **Rendimiento:** CDN global de Google, compresión automática, HTTP/3, HTTPS gratis.
@@ -145,9 +157,9 @@ Activa la compresión (gzip o brotli) en el hosting. Casi todos lo hacen solos.
 1. `npm ci && npm run check` en verde.
 2. Construir y publicar (Docker u hosting estático).
 3. Abrir la URL de producción y comprobar:
-   - pantalla de título → "Pulsa para empezar" → menú;
-   - Jugar → Nivel 1 → colocar una defensa;
-   - en un móvil: en horizontal se ve todo el tablero; en vertical sale "Gira el móvil";
+   - pantalla de título → "Press to start" → menú; el switch **EN | ES** cambia todos los textos;
+   - Play → Level 1 → colocar una defensa;
+   - en un móvil: en horizontal se ve todo el tablero; en vertical sale "Turn your phone";
    - consola del navegador sin errores;
    - cabeceras: `curl -sI https://TU-DOMINIO/ | grep -i content-security`.
 4. (Opcional) `npm run loadtest -- --url https://TU-DOMINIO --connections 100 --duration 15`

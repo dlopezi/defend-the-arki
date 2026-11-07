@@ -1,7 +1,8 @@
 import { MODE_ORDER, MODES, SERVICE_NAMES, TOTAL_WAVES, type Mode } from '../config';
 import type { GameContext, SoundName } from '../game/GameContext';
-import { CONCEPTS, type ConceptId, type Link } from '../learn/concepts';
-import { CAUSES, describeIncident, levelLessonLoss, levelLessonWin, topDefenses } from '../learn/postmortem';
+import { onLangChange, t } from '../i18n';
+import { concept, type ConceptId, type Link } from '../learn/concepts';
+import { cause, describeIncident, levelLessonLoss, levelLessonWin, topDefenses } from '../learn/postmortem';
 import { HomeMenu } from './HomeMenu';
 import { loop } from './anim';
 import { drawConceptIcon, paintConceptIcon } from './icons';
@@ -12,7 +13,7 @@ export interface OverlayCallbacks {
   onMenu(): void;
   getLearnEnabled(): boolean;
   setLearnEnabled(on: boolean): void;
-  /** Game left paused by the "Menú" button, if any. */
+  /** Game left paused by the "Menu" button, if any. */
   getSuspended(): { mode: Mode; wave: number } | null;
   onContinue(): void;
   getMuted(): boolean;
@@ -75,9 +76,8 @@ export class Overlays {
 
     this.pause = document.createElement('section');
     this.pause.className = 'overlay pause';
-    this.pause.innerHTML = `<div class="panel small"><h2>Pausa</h2><p>El bucle de actualización está detenido.</p><div class="row"><button class="btn primary" data-act="resume" type="button">Seguir</button><button class="btn" data-act="menu" type="button">Menú</button></div></div>`;
-    this.pause.querySelector('[data-act="resume"]')?.addEventListener('click', () => cb.onResume());
-    this.pause.querySelector('[data-act="menu"]')?.addEventListener('click', () => cb.onMenu());
+    this.renderPause();
+    onLangChange(() => this.renderPause());
 
     this.end = document.createElement('section');
     this.end.className = 'overlay end';
@@ -87,6 +87,12 @@ export class Overlays {
 
     this.root.append(this.pause, this.end);
     this.show('menu');
+  }
+
+  private renderPause(): void {
+    this.pause.innerHTML = `<div class="panel small"><h2>${t('Paused', 'Pausa')}</h2><p>${t('The update loop is stopped.', 'El bucle de actualización está detenido.')}</p><div class="row"><button class="btn primary" data-act="resume" type="button">${t('Resume', 'Seguir')}</button><button class="btn" data-act="menu" type="button">${t('Menu', 'Menú')}</button></div></div>`;
+    this.pause.querySelector('[data-act="resume"]')?.addEventListener('click', () => this.cb.onResume());
+    this.pause.querySelector('[data-act="menu"]')?.addEventListener('click', () => this.cb.onMenu());
   }
 
   /** A key pressed on the home view (menu navigation). Returns true if it was used. */
@@ -114,28 +120,29 @@ export class Overlays {
    * `onClose(disableAll)` runs when the player closes it.
    */
   showConcept(id: ConceptId, opts: { inGame: boolean; onClose(disableAll: boolean): void }): void {
-    const c = CONCEPTS[id];
-    const toolsLabel = c.kind === 'Defensa' ? 'Herramientas reales' : 'Cómo se defiende en la vida real';
+    const c = concept(id);
+    const isDefense = c.kind === 'defense';
+    const toolsLabel = isDefense ? t('Real tools', 'Herramientas reales') : t('How it is stopped in real life', 'Cómo se defiende en la vida real');
     this.concept.innerHTML = `
-      <div class="panel concept-card ${c.kind === 'Defensa' ? 'is-defense' : 'is-threat'}" role="dialog" aria-labelledby="concept-title">
+      <div class="panel concept-card ${isDefense ? 'is-defense' : 'is-threat'}" role="dialog" aria-labelledby="concept-title">
         <div class="concept-head">
           <canvas class="concept-icon"></canvas>
           <div>
-            <span class="concept-kind">${c.kind}</span>
+            <span class="concept-kind">${isDefense ? t('Defense', 'Defensa') : t('Threat', 'Amenaza')}</span>
             <h2 id="concept-title">${esc(c.title)}</h2>
           </div>
         </div>
-        <h3>En la vida real</h3>
+        <h3>${t('In real life', 'En la vida real')}</h3>
         <p>${esc(c.real)}</p>
         <h3>${toolsLabel}</h3>
         <p class="tools">${c.tools.map((t) => `<span class="tool">${esc(t)}</span>`).join('')}</p>
-        <h3>Juego vs realidad</h3>
-        <p class="vs same">✓ <b>Igual:</b> ${esc(c.same)}</p>
-        <p class="vs diff">✗ <b>Distinto:</b> ${esc(c.diff)}</p>
-        <p class="read">Para leer más: ${link(c.read)}</p>
+        <h3>${t('Game vs reality', 'Juego vs realidad')}</h3>
+        <p class="vs same">✓ <b>${t('Same:', 'Igual:')}</b> ${esc(c.same)}</p>
+        <p class="vs diff">✗ <b>${t('Different:', 'Distinto:')}</b> ${esc(c.diff)}</p>
+        <p class="read">${t('Read more:', 'Para leer más:')} ${link(c.read)}</p>
         <div class="concept-foot">
-          ${opts.inGame ? '<label class="check"><input type="checkbox" data-act="disable"> No mostrar más fichas</label>' : '<span></span>'}
-          <button class="btn primary" data-act="ok" type="button">Entendido<span class="no-touch"> (Enter)</span></button>
+          ${opts.inGame ? `<label class="check"><input type="checkbox" data-act="disable"> ${t('Do not show more cards', 'No mostrar más fichas')}</label>` : '<span></span>'}
+          <button class="btn primary" data-act="ok" type="button">${t('Got it', 'Entendido')}<span class="no-touch"> (Enter)</span></button>
         </div>
       </div>`;
     const canvas = this.concept.querySelector<HTMLCanvasElement>('.concept-icon');
@@ -177,27 +184,27 @@ export class Overlays {
     const win = ctx.status === 'victory';
     const spec = MODES[ctx.mode];
     const alive = ctx.lanesAlive.filter(Boolean).length;
-    const services = ctx.mode !== 'monolith' ? `<div><span>Servicios en pie</span><b>${alive}/5</b></div>` : '';
+    const services = ctx.mode !== 'monolith' ? `<div><span>${t('Services up', 'Servicios en pie')}</span><b>${alive}/5</b></div>` : '';
     const nextMode = MODE_ORDER[MODE_ORDER.indexOf(ctx.mode) + 1];
-    const nextBtn = nextMode ? `<button class="btn" data-act="next" type="button">Ir al Nivel ${MODES[nextMode].level}</button>` : '';
+    const nextBtn = nextMode ? `<button class="btn" data-act="next" type="button">${t('Go to Level', 'Ir al Nivel')} ${MODES[nextMode].level}</button>` : '';
     const report = win ? this.retrospective(ctx) : this.postmortem(ctx);
 
     this.end.innerHTML = `
       <div class="panel medium ${win ? 'win' : 'lose'}">
-        <p class="eyebrow">Nivel ${spec.level} · ${spec.name}</p>
-        <h2>${win ? 'Sistema escalado' : 'SYSTEM DOWN'}</h2>
-        ${newRecord ? '<p class="new-record">¡Nuevo récord!</p>' : ''}
+        <p class="eyebrow">${t('Level', 'Nivel')} ${spec.level} · ${spec.name}</p>
+        <h2>${win ? t('System scaled', 'Sistema escalado') : 'SYSTEM DOWN'}</h2>
+        ${newRecord ? `<p class="new-record">${t('New record!', '¡Nuevo récord!')}</p>` : ''}
         <div class="stats">
-          <div><span>Ola</span><b>${ctx.wave.number}/${TOTAL_WAVES}</b></div>
-          <div><span>Amenazas eliminadas</span><b>${ctx.kills}</b></div>
+          <div><span>${t('Wave', 'Ola')}</span><b>${ctx.wave.number}/${TOTAL_WAVES}</b></div>
+          <div><span>${t('Threats removed', 'Amenazas eliminadas')}</span><b>${ctx.kills}</b></div>
           <div><span>Uptime</span><b>${fmtTime(ctx.time)}</b></div>
           ${services}
         </div>
         ${report}
         <div class="row">
-          <button class="btn primary" data-act="retry" type="button">Reintentar</button>
+          <button class="btn primary" data-act="retry" type="button">${t('Retry', 'Reintentar')}</button>
           ${nextBtn}
-          <button class="btn" data-act="menu" type="button">Menú</button>
+          <button class="btn" data-act="menu" type="button">${t('Menu', 'Menú')}</button>
         </div>
       </div>`;
     this.end.querySelector('[data-act="retry"]')?.addEventListener('click', () => this.cb.onStart(ctx.mode));
@@ -211,24 +218,24 @@ export class Overlays {
     const last = ctx.incidents[ctx.incidents.length - 1];
     const level = levelLessonLoss(ctx.mode);
     if (!last) {
-      return `<section class="report"><h3>Post-mortem</h3><p>${esc(ctx.endReason)}</p><p class="lesson"><b>Lección:</b> ${esc(level.text)} ${link(level.read)}</p></section>`;
+      return `<section class="report"><h3>Post-mortem</h3><p>${esc(ctx.endReason)}</p><p class="lesson"><b>${t('Lesson:', 'Lección:')}</b> ${esc(level.text)} ${link(level.read)}</p></section>`;
     }
-    const cause = CAUSES[last.cause];
+    const why = cause(last.cause);
     const timeline =
       ctx.incidents.length > 1
-        ? `<h4>Cronología</h4><ol class="timeline">${ctx.incidents
-            .map((i) => `<li><span>${fmtTime(i.time)}</span> ${esc(SERVICE_NAMES[i.lane])}: ${esc(describeIncident(i))} <em>${esc(CAUSES[i.cause].root)}</em></li>`)
+        ? `<h4>${t('Timeline', 'Cronología')}</h4><ol class="timeline">${ctx.incidents
+            .map((i) => `<li><span>${fmtTime(i.time)}</span> ${esc(SERVICE_NAMES[i.lane])}: ${esc(describeIncident(i))} <em>${esc(cause(i.cause).root)}</em></li>`)
             .join('')}</ol>`
         : '';
     return `
       <section class="report">
         <h3>Post-mortem</h3>
         <dl>
-          <dt>Incidente</dt><dd>${esc(describeIncident(last))}</dd>
-          <dt>Causa raíz</dt><dd>${esc(cause.root)}</dd>
-          <dt>Qué habría ayudado</dt><dd>${esc(cause.help)}</dd>
-          <dt>Lección</dt><dd>${esc(cause.lesson)} ${link(cause.read)}</dd>
-          <dt>Arquitectura</dt><dd>${esc(level.text)} ${link(level.read)}</dd>
+          <dt>${t('Incident', 'Incidente')}</dt><dd>${esc(describeIncident(last))}</dd>
+          <dt>${t('Root cause', 'Causa raíz')}</dt><dd>${esc(why.root)}</dd>
+          <dt>${t('What would have helped', 'Qué habría ayudado')}</dt><dd>${esc(why.help)}</dd>
+          <dt>${t('Lesson', 'Lección')}</dt><dd>${esc(why.lesson)} ${link(why.read)}</dd>
+          <dt>${t('Architecture', 'Arquitectura')}</dt><dd>${esc(level.text)} ${link(level.read)}</dd>
         </dl>
         ${timeline}
       </section>`;
@@ -240,11 +247,11 @@ export class Overlays {
     const top = topDefenses(ctx.placed);
     return `
       <section class="report">
-        <h3>Retrospectiva</h3>
+        <h3>${t('Retrospective', 'Retrospectiva')}</h3>
         <dl>
-          <dt>Lo que más usaste</dt><dd>${top.length ? esc(top.join(' · ')) : 'Ninguna defensa'}</dd>
-          <dt>Servicios caídos</dt><dd>${lost}</dd>
-          <dt>Lección</dt><dd>${esc(level.text)} ${link(level.read)}</dd>
+          <dt>${t('What you used most', 'Lo que más usaste')}</dt><dd>${top.length ? esc(top.join(' · ')) : t('No defense', 'Ninguna defensa')}</dd>
+          <dt>${t('Services down', 'Servicios caídos')}</dt><dd>${lost}</dd>
+          <dt>${t('Lesson', 'Lección')}</dt><dd>${esc(level.text)} ${link(level.read)}</dd>
         </dl>
       </section>`;
   }

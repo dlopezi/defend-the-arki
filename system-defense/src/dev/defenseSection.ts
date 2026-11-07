@@ -5,7 +5,7 @@ import type { G, Pick } from './avatarOptions';
 import { DEF_OPTIONS, type DefAnim, type DefBody, type DefItem } from './defenseOptions';
 import { DEF_OPTIONS_R2 } from './defenseOptions2';
 import { DEF_OPTIONS_R3 } from './defenseOptions3';
-import { CONCEPTS } from '../learn/concepts';
+import { concept } from '../learn/concepts';
 import { drawLane, setupCanvas } from './pageKit';
 import { ensureRoundCss, type RoundSection } from './roundSection';
 
@@ -350,7 +350,7 @@ function mountDefenseRound(container: HTMLElement, cfg: DefRoundConfig, onChange
     const col = document.createElement('div');
     col.className = 'info';
     const up = cfg.versions ? (info.upgrade ? `<span class="desc"><b style="color:#facc15">v2:</b> ${esc(info.upgrade)}</span>` : '<span class="desc">Sin v2 en el juego.</span>') : '';
-    const real = cfg.realLife ? `<span class="desc"><b style="color:#e2e8f0">Vida real:</b> ${esc(CONCEPTS[item].real.split('. ')[0].replace(/\.$/, ''))}.</span>` : '';
+    const real = cfg.realLife ? `<span class="desc"><b style="color:#e2e8f0">Vida real:</b> ${esc(concept(item).real.split('. ')[0].replace(/\.$/, ''))}.</span>` : '';
     col.innerHTML = `<strong style="color:${info.color}">${info.name}</strong><span class="desc">${info.desc}</span>${up}${real}`;
     col.append(noteBox(item, 'Comentario…'));
     const base = cfg.bases?.[item];

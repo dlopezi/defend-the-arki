@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { CELL_H, CELL_W, cellAt, colX, DEFENSES, GRID_X, GRID_Y, inRect, laneY, upgradePanelRect } from '../config';
 import type { System } from '../ecs/System';
 import type { World } from '../ecs/World';
@@ -64,7 +65,7 @@ function handlePanel(world: World, ctx: GameContext, click: Point): boolean {
   const spec = DEFENSES[d.type];
   if (spec.upgrade === null || d.level >= 2) return true;
   if (ctx.cu < spec.cost) {
-    spawnText(world, x, y, 'CU insuficiente', '#f87171', 13);
+    spawnText(world, x, y, t('Not enough CU', 'CU insuficiente'), '#f87171', 13);
     sound(ctx, 'deny');
     return true;
   }
@@ -101,13 +102,13 @@ export const InputSystem: System = {
           ctx.inspect = { lane, col };
         } else {
           const d = world.get(occupant, 'defense');
-          spawnText(world, x, y - 44, d && d.level >= 2 ? 'Ya es v2' : 'No mejorable', '#94a3b8', 13);
+          spawnText(world, x, y - 44, d && d.level >= 2 ? t('Already v2', 'Ya es v2') : t('Cannot upgrade', 'No mejorable'), '#94a3b8', 13);
         }
         continue;
       }
 
       if (!ctx.lanesAlive[lane]) {
-        spawnText(world, x, y, '503: servicio caído', '#f87171', 13);
+        spawnText(world, x, y, t('503: service down', '503: servicio caído'), '#f87171', 13);
         sound(ctx, 'deny');
         continue;
       }
@@ -118,7 +119,7 @@ export const InputSystem: System = {
           world.destroy(occupant);
           ctx.grid[lane][col] = null;
           spawnSparks(world, x, y, '#94a3b8', 10);
-          spawnText(world, x, y, 'desmantelado', '#94a3b8', 13);
+          spawnText(world, x, y, t('dismantled', 'desmantelado'), '#94a3b8', 13);
           sound(ctx, 'place');
           ctx.selected = null;
         }
@@ -129,9 +130,9 @@ export const InputSystem: System = {
       const type = ctx.selected;
       const spec = DEFENSES[type];
       let problem = '';
-      if (occupant !== null) problem = 'Celda ocupada';
-      else if (ctx.cu < spec.cost) problem = 'CU insuficiente';
-      else if (ctx.cooldowns[type] > 0) problem = 'Recargando…';
+      if (occupant !== null) problem = t('Cell taken', 'Celda ocupada');
+      else if (ctx.cu < spec.cost) problem = t('Not enough CU', 'CU insuficiente');
+      else if (ctx.cooldowns[type] > 0) problem = t('Recharging…', 'Recargando…');
       if (problem) {
         spawnText(world, x, y, problem, '#fbbf24', 13);
         sound(ctx, 'deny');

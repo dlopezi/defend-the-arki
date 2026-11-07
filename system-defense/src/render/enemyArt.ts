@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import type { EnemyType } from '../config';
 import { circ, line, paint, rr, TAU, txt, type G } from './shapes';
 
@@ -228,7 +229,7 @@ const slowloris: EnemyBody = (g, a) => {
   rr(g, -6, -5, 3 + ((t * 0.04) % 1) * 4, 8, 4);
   paint(g, '#38bdf8');
   txt(g, '2%', 8, -17, 6, '#bae6fd', 800);
-  band(g, -18, 11, 36, 'cargando', 6);
+  band(g, -18, 11, 36, tr('loading', 'cargando'), 6);
 };
 
 /* ======================= Bots ======================= */

@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import { CELL_W, COLS, colX, GRID_X, ZERO_DAY_SPEED_AFTER_JUMP, type EnemyType } from '../config';
 import type { Entity, World } from '../ecs/World';
 import type { System } from '../ecs/System';
@@ -54,7 +55,7 @@ export const EnemyAISystem: System = {
           // The WAF is too tall: the exploit loses its jump.
           jumper.jumped = true;
           enemy.speed = ZERO_DAY_SPEED_AFTER_JUMP;
-          spawnText(world, t.x, t.y - 40, 'bloqueado', '#2dd4bf', 13);
+          spawnText(world, t.x, t.y - 40, tr('blocked', 'bloqueado'), '#2dd4bf', 13);
         } else {
           // Zero-Day: leap over the first defense, landing just left of its cell.
           enemy.state = 'jump';

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { MODE_ORDER, type Mode } from '../config';
 
 export interface LevelRecord {
@@ -50,9 +51,9 @@ export function saveResult(mode: Mode, wave: number, won: boolean, kills: number
 }
 
 export function describeRecord(r: LevelRecord): string {
-  if (r.won) return `Récord: victoria · ${r.bestKills} amenazas`;
-  if (r.bestWave === 0) return 'Récord: sin partidas';
-  return `Récord: ola ${r.bestWave} · ${r.bestKills} amenazas`;
+  if (r.won) return t(`Record: won · ${r.bestKills} threats`, `Récord: victoria · ${r.bestKills} amenazas`);
+  if (r.bestWave === 0) return t('Record: no games yet', 'Récord: sin partidas');
+  return t(`Record: wave ${r.bestWave} · ${r.bestKills} threats`, `Récord: ola ${r.bestWave} · ${r.bestKills} amenazas`);
 }
 
 export function clearRecords(): void {

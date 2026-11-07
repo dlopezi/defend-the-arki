@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { COLS, DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, LANES, MODE_ORDER, TOTAL_WAVES, type EnemyType } from '../src/config';
 import { World } from '../src/ecs/World';
 import { buildWave, countByType } from '../src/game/waves';
-import { CONCEPTS, type ConceptId } from '../src/learn/concepts';
+import { CONCEPT_TABLES, type ConceptId } from '../src/learn/concepts';
 import { DEFENSE_ART } from '../src/render/defenseArt';
 import { ENEMY_ART } from '../src/render/enemyArt';
 import { seedRandom } from './harness';
@@ -59,14 +59,19 @@ describe('config', () => {
     }
   });
 
-  it('every element has a drawing and a concept card', () => {
-    for (const d of DEFENSE_ORDER) {
-      expect(DEFENSE_ART[d], d).toBeTypeOf('function');
-      expect(CONCEPTS[d], d).toBeDefined();
-    }
+  it('every element has a drawing and a concept card in both languages', () => {
+    for (const d of DEFENSE_ORDER) expect(DEFENSE_ART[d], d).toBeTypeOf('function');
     for (const e of Object.keys(ENEMIES) as EnemyType[]) expect(ENEMY_ART[e], e).toBeTypeOf('function');
-    for (const e of ENEMY_ORDER) expect(CONCEPTS[e as ConceptId], e).toBeDefined();
-    expect(CONCEPTS.rollback).toBeDefined();
+    const ids: ConceptId[] = [...DEFENSE_ORDER, ...(ENEMY_ORDER as ConceptId[]), 'rollback'];
+    for (const [lang, table] of Object.entries(CONCEPT_TABLES)) {
+      for (const id of ids) expect(table[id]?.real, `${lang}: ${id}`).toBeTruthy();
+      // same cards, same kind and same link in English and Spanish
+      expect(Object.keys(table).sort(), lang).toEqual(Object.keys(CONCEPT_TABLES.en).sort());
+      for (const id of ids) {
+        expect(table[id].kind, `${lang}: ${id}`).toBe(CONCEPT_TABLES.en[id].kind);
+        expect(table[id].read, `${lang}: ${id}`).toBe(CONCEPT_TABLES.en[id].read);
+      }
+    }
     expect(MODE_ORDER).toEqual(['monolith', 'microservices', 'kubernetes']);
   });
 });

@@ -1,7 +1,8 @@
 import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, type Mode } from '../config';
 import type { SoundName } from '../game/GameContext';
 import { clearRecords, describeRecord, loadRecords } from '../game/records';
-import { CONCEPTS, type ConceptId } from '../learn/concepts';
+import { lang, setLang, t, type Lang } from '../i18n';
+import { concept, type ConceptId } from '../learn/concepts';
 import { fitCanvas, loop } from './anim';
 import { drawArena } from './homeArena';
 import { HOWTO_STEPS, SCENE_H, SCENE_W } from './howtoScenes';
@@ -35,12 +36,29 @@ function readStarted(): boolean {
 /** Buttons that the arrow keys move between, on each screen. */
 const NAV = '.main-menu .menu-btn, .levels .level, .codex .codex-item, .screen-head .back, .tabs .tab';
 
-const TITLES: Record<Exclude<HomeScreen, 'main'>, string> = {
-  levels: 'Elige un nivel',
-  guide: 'Guía',
-  howto: 'Cómo jugar',
-  options: 'Opciones',
-};
+function screenTitle(screen: Exclude<HomeScreen, 'main'>): string {
+  switch (screen) {
+    case 'levels':
+      return t('Choose a level', 'Elige un nivel');
+    case 'guide':
+      return t('Guide', 'Guía');
+    case 'howto':
+      return t('How to play', 'Cómo jugar');
+    case 'options':
+      return t('Options', 'Opciones');
+  }
+}
+
+/** EN | ES switch. The labels are the same in both languages, so anyone can find it. */
+function langSwitch(): string {
+  const btn = (l: Lang, label: string) =>
+    `<button class="${lang() === l ? 'active' : ''}" data-lang="${l}" type="button" aria-pressed="${lang() === l}">${label}</button>`;
+  return `<div class="seg lang-seg" role="group" aria-label="Language · Idioma">${btn('en', 'EN')}${btn('es', 'ES')}</div>`;
+}
+
+function soundLabel(muted: boolean): string {
+  return muted ? t('🔇 Sound: off', '🔇 Sonido: no') : t('🔊 Sound: on', '🔊 Sonido: sí');
+}
 
 function esc(text: string): string {
   return text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c);
@@ -48,7 +66,7 @@ function esc(text: string): string {
 
 /**
  * Start view, organized like a game menu:
- * main title screen -> Jugar (levels) · Guía (codex) · Cómo jugar · Opciones.
+ * main title screen -> Play (levels) · Guide (codex) · How to play · Options.
  */
 export class HomeMenu {
   readonly el: HTMLElement;
@@ -84,7 +102,7 @@ export class HomeMenu {
     this.el.querySelector<HTMLButtonElement>('.press-start, .menu-btn, .back')?.focus({ preventScroll: true });
   }
 
-  /** Esc / "Volver". Returns false when already on the main screen. */
+  /** Esc / "Back". Returns false when already on the main screen. */
   back(): boolean {
     if (this.screen === 'main') return false;
     this.cb.playSound('menuMove');
@@ -182,11 +200,13 @@ export class HomeMenu {
   private mainScreen(): string {
     const s = this.cb.getSuspended();
     const items: [string, string, string][] = [
-      ...(s ? ([['continue', 'Continuar', `Nivel ${MODES[s.mode].level} · ${s.wave > 0 ? `Ola ${s.wave}` : 'Preparación'}`]] as [string, string, string][]) : []),
-      ['levels', 'Jugar', ''],
-      ['guide', 'Guía', ''],
-      ['howto', 'Cómo jugar', ''],
-      ['options', 'Opciones', ''],
+      ...(s
+        ? ([['continue', t('Continue', 'Continuar'), `${t('Level', 'Nivel')} ${MODES[s.mode].level} · ${s.wave > 0 ? `${t('Wave', 'Ola')} ${s.wave}` : t('Setup', 'Preparación')}`]] as [string, string, string][])
+        : []),
+      ['levels', t('Play', 'Jugar'), ''],
+      ['guide', t('Guide', 'Guía'), ''],
+      ['howto', t('How to play', 'Cómo jugar'), ''],
+      ['options', t('Options', 'Opciones'), ''],
     ];
     const menu = items
       .map(
@@ -195,22 +215,23 @@ export class HomeMenu {
       )
       .join('');
     const actions = this.started
-      ? `<nav class="main-menu" aria-label="Menú principal">${menu}</nav>`
-      : `<button class="press-start" data-go="press" type="button">Pulsa para empezar<small><span class="no-touch">clic o cualquier tecla</span><span class="touch-only">toca la pantalla</span></small></button>`;
+      ? `<nav class="main-menu" aria-label="${t('Main menu', 'Menú principal')}">${menu}</nav>`
+      : `<button class="press-start" data-go="press" type="button">${t('Press to start', 'Pulsa para empezar')}<small><span class="no-touch">${t('click or any key', 'clic o cualquier tecla')}</span><span class="touch-only">${t('tap the screen', 'toca la pantalla')}</span></small></button>`;
     const muted = this.cb.getMuted();
     return `
       <canvas class="arena" aria-hidden="true"></canvas>
       <div class="title-screen">
-        <p class="eyebrow">Tower defense de arquitectura de sistemas</p>
-        <h1 class="logo"><span class="logo-a">System</span><span class="logo-b">Defense</span></h1>
-        <p class="tagline">Defiende tu arquitectura del tráfico hostil.</p>
+        <p class="eyebrow">${t('Systems architecture tower defense', 'Tower defense de arquitectura de sistemas')}</p>
+        <h1 class="logo"><span class="logo-a">Defend the</span><span class="logo-b">Arki</span></h1>
+        <p class="tagline">${t('Defend your architecture from hostile traffic.', 'Defiende tu arquitectura del tráfico hostil.')}</p>
         ${actions}
       </div>
       <footer class="title-foot">
         <span class="best">${esc(this.bestLine())}</span>
-        <span class="hint">${this.started ? '↑ ↓ elegir · Enter aceptar · Esc volver' : ''}</span>
+        <span class="hint">${this.started ? t('↑ ↓ choose · Enter select · Esc back', '↑ ↓ elegir · Enter aceptar · Esc volver') : ''}</span>
         <span class="foot-right">
-          <button class="icon-btn" data-opt="quickSound" type="button" aria-pressed="${!muted}">${muted ? '🔇 Sonido: no' : '🔊 Sonido: sí'}</button>
+          ${langSwitch()}
+          <button class="icon-btn" data-opt="quickSound" type="button" aria-pressed="${!muted}">${soundLabel(muted)}</button>
           <span class="ver">v${__APP_VERSION__}</span>
         </span>
       </footer>`;
@@ -227,9 +248,11 @@ export class HomeMenu {
       const bestScore = best ? (best.won ? 100 : 0) + best.wave : -1;
       if (score > bestScore || (score === bestScore && MODES[m].level > MODES[best!.mode].level)) best = { mode: m, wave: r.bestWave, won: r.won };
     }
-    if (!best) return '🏆 Sin récords todavía: ¡juega tu primera partida!';
+    if (!best) return t('🏆 No records yet: play your first game!', '🏆 Sin récords todavía: ¡juega tu primera partida!');
     const spec = MODES[best.mode];
-    return best.won ? `🏆 Mejor: victoria en Nivel ${spec.level} · ${spec.name}` : `🏆 Mejor: Nivel ${spec.level} · ${spec.name} · ola ${best.wave}`;
+    return best.won
+      ? t(`🏆 Best: won Level ${spec.level} · ${spec.name}`, `🏆 Mejor: victoria en Nivel ${spec.level} · ${spec.name}`)
+      : t(`🏆 Best: Level ${spec.level} · ${spec.name} · wave ${best.wave}`, `🏆 Mejor: Nivel ${spec.level} · ${spec.name} · ola ${best.wave}`);
   }
 
   private subScreen(screen: Exclude<HomeScreen, 'main'>): string {
@@ -241,8 +264,8 @@ export class HomeMenu {
         break;
       case 'guide':
         right = `<div class="tabs" role="tablist">
-            <button class="tab ${this.guideTab === 'defenses' ? 'active' : ''}" data-tab="defenses" type="button" role="tab">Defensas</button>
-            <button class="tab ${this.guideTab === 'threats' ? 'active' : ''}" data-tab="threats" type="button" role="tab">Amenazas</button>
+            <button class="tab ${this.guideTab === 'defenses' ? 'active' : ''}" data-tab="defenses" type="button" role="tab">${t('Defenses', 'Defensas')}</button>
+            <button class="tab ${this.guideTab === 'threats' ? 'active' : ''}" data-tab="threats" type="button" role="tab">${t('Threats', 'Amenazas')}</button>
           </div>`;
         content = this.guideScreen();
         break;
@@ -255,8 +278,8 @@ export class HomeMenu {
     }
     return `
       <header class="screen-head">
-        <button class="back" data-go="main" type="button">← Volver</button>
-        <h2>${TITLES[screen]}</h2>
+        <button class="back" data-go="main" type="button">← ${t('Back', 'Volver')}</button>
+        <h2>${screenTitle(screen)}</h2>
         <div class="head-right">${right}</div>
       </header>
       <div class="screen-body">${content}</div>`;
@@ -267,14 +290,14 @@ export class HomeMenu {
     const cards = MODE_ORDER.map((m) => {
       const spec = MODES[m];
       return `<button class="level" data-mode="${m}" type="button" style="--accent:${spec.color}">
-          <span class="level-tag">Nivel ${spec.level}</span>
+          <span class="level-tag">${t('Level', 'Nivel')} ${spec.level}</span>
           <strong>${spec.name}</strong>
           <span>${spec.rule}</span>
           <span class="record">${describeRecord(records[m])}</span>
         </button>`;
     }).join('');
     const warn = this.cb.getSuspended()
-      ? '<p class="note warn">Tienes una partida en pausa. Si eliges un nivel, esa partida termina.</p>'
+      ? `<p class="note warn">${t('You have a paused game. If you choose a level, that game ends.', 'Tienes una partida en pausa. Si eliges un nivel, esa partida termina.')}</p>`
       : '';
     return `<div class="levels">${cards}</div>${warn}`;
   }
@@ -284,19 +307,22 @@ export class HomeMenu {
       this.guideTab === 'defenses'
         ? [
             ...DEFENSE_ORDER.map((d) => ({ id: d as ConceptId, name: DEFENSES[d].name, sub: `${DEFENSES[d].cost} CU`, hotkey: DEFENSES[d].hotkey, color: DEFENSES[d].color })),
-            { id: 'rollback', name: 'Rollback', sub: 'Gratis · niveles 2 y 3', color: '#22d3ee' },
+            { id: 'rollback', name: 'Rollback', sub: t('Free · levels 2 and 3', 'Gratis · niveles 2 y 3'), color: '#22d3ee' },
           ]
         : ENEMY_ORDER.map((e) => ({ id: e as ConceptId, name: ENEMIES[e].name, sub: ENEMIES[e].desc, color: ENEMIES[e].color }));
     const grid = items
       .map(
-        (it) => `<button class="codex-item" data-concept="${it.id}" type="button" style="--accent:${it.color}" title="${esc(CONCEPTS[it.id].real)}">
+        (it) => `<button class="codex-item" data-concept="${it.id}" type="button" style="--accent:${it.color}" title="${esc(concept(it.id).real)}">
           <canvas class="codex-icon" data-icon="${it.id}"></canvas>
           <strong>${esc(it.name)}</strong>
-          <span>${esc(it.sub)}${it.hotkey ? `<span class="no-touch"> · tecla ${esc(it.hotkey)}</span>` : ''}</span>
+          <span>${esc(it.sub)}${it.hotkey ? `<span class="no-touch"> · ${t('key', 'tecla')} ${esc(it.hotkey)}</span>` : ''}</span>
         </button>`,
       )
       .join('');
-    return `<div class="codex">${grid}</div><p class="note"><span class="no-touch">Pasa el ratón por encima para verlos en acción. </span>Pulsa un elemento para ver su ficha: qué es en la vida real y en qué se parece al juego.</p>`;
+    return `<div class="codex">${grid}</div><p class="note"><span class="no-touch">${t('Hover over them to see them in action. ', 'Pasa el ratón por encima para verlos en acción. ')}</span>${t(
+      'Press an element to see its card: what it is in real life and how it compares to the game.',
+      'Pulsa un elemento para ver su ficha: qué es en la vida real y en qué se parece al juego.',
+    )}</p>`;
   }
 
   private howtoScreen(): string {
@@ -310,30 +336,45 @@ export class HomeMenu {
     ).join('');
     const key = (k: string, v: string) => `<span>${k} ${v}</span>`;
     return `
-      <p class="howto-goal"><b>Objetivo:</b> protege la base (izquierda) del tráfico que llega desde Internet (derecha). Sobrevive a 10 olas.</p>
+      <p class="howto-goal"><b>${t('Goal:', 'Objetivo:')}</b> ${t(
+        'protect the base (left) from the traffic that comes from the Internet (right). Survive 10 waves.',
+        'protege la base (izquierda) del tráfico que llega desde Internet (derecha). Sobrevive a 10 olas.',
+      )}</p>
       <ol class="steps">${steps}</ol>
       <div class="keys">
-        <b>Teclas</b>
-        ${key('<kbd>1</kbd>–<kbd>8</kbd>', 'defensas')}
-        ${key('<kbd>Q</kbd>', 'quitar defensa')}
-        ${key('<kbd>Esc</kbd> o clic derecho', 'cancelar')}
-        ${key('<kbd>P</kbd>', 'pausa')}
-        ${key('<kbd>F</kbd>', 'velocidad ×2')}
-        ${key('<kbd>M</kbd>', 'sonido')}
+        <b>${t('Keys', 'Teclas')}</b>
+        ${key('<kbd>1</kbd>–<kbd>8</kbd>', t('defenses', 'defensas'))}
+        ${key('<kbd>Q</kbd>', t('remove defense', 'quitar defensa'))}
+        ${key(`<kbd>Esc</kbd> ${t('or right click', 'o clic derecho')}`, t('cancel', 'cancelar'))}
+        ${key('<kbd>P</kbd>', t('pause', 'pausa'))}
+        ${key('<kbd>F</kbd>', t('speed ×2', 'velocidad ×2'))}
+        ${key('<kbd>M</kbd>', t('sound', 'sonido'))}
       </div>`;
   }
 
   private optionsScreen(): string {
     const seg = (key: string, on: boolean) =>
       `<div class="seg" role="group">
-        <button class="${on ? 'active' : ''}" data-opt="${key}" data-val="1" type="button">Sí</button>
+        <button class="${on ? 'active' : ''}" data-opt="${key}" data-val="1" type="button">${t('Yes', 'Sí')}</button>
         <button class="${on ? '' : 'active'}" data-opt="${key}" data-val="0" type="button">No</button>
       </div>`;
     return `<div class="options">
-      <div class="opt"><div><strong>Fichas de concepto durante la partida</strong><span>La primera vez que aparece un elemento, el juego se pausa y explica qué es.</span></div>${seg('learn', this.cb.getLearnEnabled())}</div>
-      <div class="opt"><div><strong>Sonido</strong><span>Efectos de sonido del juego.</span></div>${seg('sound', !this.cb.getMuted())}</div>
-      <div class="opt"><div><strong>Ver de nuevo todas las fichas</strong><span>Las fichas volverán a salir durante la partida.</span></div><button class="btn" data-opt="resetSeen" type="button">Reiniciar</button></div>
-      <div class="opt"><div><strong>Borrar récords</strong><span>Borra los récords de los 3 niveles en este navegador.</span></div><button class="btn ${this.confirmClear ? 'danger' : ''}" data-opt="clearRecords" type="button">${this.confirmClear ? '¿Seguro? Pulsa otra vez' : 'Borrar'}</button></div>
+      <div class="opt"><div><strong>Language · Idioma</strong><span>${t('Texts of the whole game.', 'Textos de todo el juego.')}</span></div>${langSwitch()}</div>
+      <div class="opt"><div><strong>${t('Concept cards during the game', 'Fichas de concepto durante la partida')}</strong><span>${t(
+        'The first time an element appears, the game pauses and explains what it is.',
+        'La primera vez que aparece un elemento, el juego se pausa y explica qué es.',
+      )}</span></div>${seg('learn', this.cb.getLearnEnabled())}</div>
+      <div class="opt"><div><strong>${t('Sound', 'Sonido')}</strong><span>${t('Game sound effects.', 'Efectos de sonido del juego.')}</span></div>${seg('sound', !this.cb.getMuted())}</div>
+      <div class="opt"><div><strong>${t('See all cards again', 'Ver de nuevo todas las fichas')}</strong><span>${t(
+        'The cards will show up again during the game.',
+        'Las fichas volverán a salir durante la partida.',
+      )}</span></div><button class="btn" data-opt="resetSeen" type="button">${t('Reset', 'Reiniciar')}</button></div>
+      <div class="opt"><div><strong>${t('Clear records', 'Borrar récords')}</strong><span>${t(
+        'Clears the records of the 3 levels in this browser.',
+        'Borra los récords de los 3 niveles en este navegador.',
+      )}</span></div><button class="btn ${this.confirmClear ? 'danger' : ''}" data-opt="clearRecords" type="button">${
+        this.confirmClear ? t('Sure? Press again', '¿Seguro? Pulsa otra vez') : t('Clear', 'Borrar')
+      }</button></div>
       ${this.notice ? `<p class="note ok">${esc(this.notice)}</p>` : ''}
     </div>`;
   }
@@ -341,7 +382,7 @@ export class HomeMenu {
   /* ---------- Events ---------- */
 
   private bind(): void {
-    // "Pulsa para empezar": a click anywhere on the title screen also starts.
+    // "Press to start": a click anywhere on the title screen also starts.
     if (this.screen === 'main' && !this.started) {
       this.el.querySelector('.home-panel')?.addEventListener('click', (e) => {
         if (!(e.target as Element).closest('button')) this.pressStart();
@@ -391,6 +432,19 @@ export class HomeMenu {
     this.el.querySelectorAll<HTMLButtonElement>('[data-opt]').forEach((b) => {
       b.addEventListener('click', () => this.option(b.dataset.opt ?? '', b.dataset.val === '1'));
     });
+    this.el.querySelectorAll<HTMLButtonElement>('[data-lang]').forEach((b) => {
+      b.addEventListener('click', () => this.changeLang(b.dataset.lang === 'es' ? 'es' : 'en'));
+    });
+  }
+
+  /** Redraws the current screen in the new language and keeps the focus on the switch. */
+  private changeLang(next: Lang): void {
+    if (next === lang()) return;
+    setLang(next);
+    this.cb.playSound('menuSelect');
+    this.notice = '';
+    this.render();
+    this.el.querySelector<HTMLButtonElement>(`[data-lang="${next}"]`)?.focus({ preventScroll: true });
   }
 
   private option(key: string, on: boolean): void {
@@ -400,7 +454,7 @@ export class HomeMenu {
       const muted = this.cb.getMuted();
       const b = this.el.querySelector<HTMLButtonElement>('[data-opt="quickSound"]');
       if (b) {
-        b.textContent = muted ? '🔇 Sonido: no' : '🔊 Sonido: sí';
+        b.textContent = soundLabel(muted);
         b.setAttribute('aria-pressed', String(!muted));
       }
       if (!muted) this.cb.playSound('menuSelect');
@@ -417,7 +471,7 @@ export class HomeMenu {
         break;
       case 'resetSeen':
         this.cb.resetSeen();
-        this.notice = 'Hecho: las fichas volverán a salir durante la partida.';
+        this.notice = t('Done: the cards will show up again during the game.', 'Hecho: las fichas volverán a salir durante la partida.');
         break;
       case 'clearRecords':
         if (!this.confirmClear) {
@@ -425,7 +479,7 @@ export class HomeMenu {
         } else {
           clearRecords();
           this.confirmClear = false;
-          this.notice = 'Récords borrados.';
+          this.notice = t('Records cleared.', 'Récords borrados.');
         }
         break;
     }

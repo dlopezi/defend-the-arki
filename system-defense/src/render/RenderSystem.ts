@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import {
   BASE_W,
   CANVAS_H,
@@ -106,7 +107,7 @@ export class RenderSystem {
     g.font = `700 12px ${MONO}`;
     g.textAlign = 'center';
     g.fillStyle = 'rgba(248,113,113,0.45)';
-    g.fillText('INTERNET  ·  TRÁFICO ENTRANTE', 0, 0);
+    g.fillText(t('INTERNET  ·  INCOMING TRAFFIC', 'INTERNET  ·  TRÁFICO ENTRANTE'), 0, 0);
     g.restore();
     // firewall line (left limit)
     g.strokeStyle = ctx.status === 'gameover' ? '#ef4444' : 'rgba(56,189,248,0.6)';
@@ -141,7 +142,7 @@ export class RenderSystem {
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillStyle = down ? '#fca5a5' : '#e0f2fe';
-      g.fillText('MONOLITO', x + w / 2, y + 18);
+      g.fillText(t('MONOLITH', 'MONOLITO'), x + w / 2, y + 18);
       for (let i = 0; i < 17; i++) {
         const ry = y + 34 + i * 25;
         g.beginPath();
@@ -417,7 +418,7 @@ export class RenderSystem {
       if (restarting) {
         const left = ctx.laneRestart[lane];
         g.fillStyle = 'rgba(252,211,77,0.9)';
-        g.fillText(`Reiniciando pod… ${Math.ceil(left)} s`, cx, y + CELL_H / 2 - 8);
+        g.fillText(t(`Restarting pod… ${Math.ceil(left)} s`, `Reiniciando pod… ${Math.ceil(left)} s`), cx, y + CELL_H / 2 - 8);
         const bw = 260;
         g.fillStyle = 'rgba(0,0,0,0.6)';
         g.fillRect(cx - bw / 2, y + CELL_H / 2 + 14, bw, 6);
@@ -463,12 +464,12 @@ export class RenderSystem {
     if (!can) {
       g.font = `700 12px ${MONO}`;
       g.fillStyle = '#94a3b8';
-      g.fillText(spec.upgrade === null ? 'No mejorable' : `${spec.short} ya es v2`, cx, r.y + r.h / 2);
+      g.fillText(spec.upgrade === null ? t('Cannot upgrade', 'No mejorable') : t(`${spec.short} is already v2`, `${spec.short} ya es v2`), cx, r.y + r.h / 2);
       return;
     }
     g.font = `800 13px ${MONO}`;
     g.fillStyle = afford ? '#fde047' : '#f87171';
-    g.fillText(`⬆ Mejorar a v2 · ${spec.cost} CU`, cx, r.y + 16);
+    g.fillText(`⬆ ${t('Upgrade to v2', 'Mejorar a v2')} · ${spec.cost} CU`, cx, r.y + 16);
     g.font = `500 10px ${MONO}`;
     g.fillStyle = '#cbd5e1';
     g.fillText(spec.upgrade ?? '', cx, r.y + 35);
@@ -507,7 +508,7 @@ export class RenderSystem {
     g.textAlign = 'right';
     g.textBaseline = 'bottom';
     g.fillStyle = 'rgba(148,163,184,0.7)';
-    g.fillText(`${fps} FPS · ECS ${world.size} entidades`, CANVAS_W - 32, CANVAS_H - 4);
+    g.fillText(`${fps} FPS · ECS ${world.size} ${t('entities', 'entidades')}`, CANVAS_W - 32, CANVAS_H - 4);
   }
 
   private hpBar(x: number, y: number, w: number, ratio: number, color: string): void {

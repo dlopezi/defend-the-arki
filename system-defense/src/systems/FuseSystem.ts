@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import { BOSS_BLAST_DAMAGE, CELL_W, GRID_X } from '../config';
 import type { System } from '../ecs/System';
 import { spawnEffect, spawnSparks, spawnText } from '../game/factories';
@@ -33,7 +34,7 @@ export const FuseSystem: System = {
       spawnEffect(world, 'explosion', t.x, t.y, '#facc15', { size: 160, duration: 0.6 });
       spawnEffect(world, 'ring', t.x, t.y, '#fde68a', { size: 170, duration: 0.5 });
       spawnSparks(world, t.x, t.y, '#fb923c', 26, 320);
-      spawnText(world, t.x, t.y - 50, hits > 0 ? `CIRCUITO ABIERTO ×${hits}` : 'CIRCUITO ABIERTO', '#fde047', 16);
+      spawnText(world, t.x, t.y - 50, hits > 0 ? `${tr('CIRCUIT OPEN', 'CIRCUITO ABIERTO')} ×${hits}` : tr('CIRCUIT OPEN', 'CIRCUITO ABIERTO'), '#fde047', 16);
       ctx.shake = Math.max(ctx.shake, 14);
       sound(ctx, 'explode');
       world.destroy(e);

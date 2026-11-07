@@ -51,7 +51,7 @@ jobs:
           docker run -d --name sd -p 8080:8080 system-defense:ci
           for i in $(seq 1 30); do curl -sf http://localhost:8080/ >/dev/null && break; sleep 1; done
           curl -sI http://localhost:8080/ | grep -i "content-security-policy"
-          curl -s http://localhost:8080/ | grep -q "<title>System Defense"
+          curl -s http://localhost:8080/ | grep -q "<title>Defend the Arki"
 
   # Firebase Hosting (Google Cloud). Only on push to main, only after every check passed.
   # One-time setup: scripts/setup-gcp.sh (creates the repository variables used below).
@@ -93,5 +93,5 @@ jobs:
           for url in $URLS; do
             echo "Checking $url"
             curl -sfI "$url/" | grep -i "content-security-policy"
-            curl -sf "$url/" | grep -q "<title>System Defense"
+            curl -sf "$url/" | grep -q "<title>Defend the Arki"
           done

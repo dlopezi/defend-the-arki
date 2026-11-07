@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import { BASE_W, BREACH_X, CANVAS_H, ENEMIES, laneY, POD_RESTART_TIME, SERVICE_NAMES } from '../config';
 import type { World } from '../ecs/World';
 import type { System } from '../ecs/System';
@@ -47,7 +48,10 @@ export const BreachSystem: System = {
 
       if (ctx.mode === 'monolith') {
         ctx.status = 'gameover';
-        ctx.endReason = `"${name}" cruzó el carril ${lane + 1}. El monolito es un único punto de fallo: todo el sistema cayó.`;
+        ctx.endReason = tr(
+          `"${name}" crossed lane ${lane + 1}. The monolith is a single point of failure: the whole system went down.`,
+          `"${name}" cruzó el carril ${lane + 1}. El monolito es un único punto de fallo: todo el sistema cayó.`,
+        );
         spawnEffect(world, 'explosion', BASE_W / 2, CANVAS_H / 2, '#ef4444', { size: 260, duration: 1.2 });
         spawnSparks(world, BASE_W / 2, laneY(lane), '#ef4444', 40, 320);
         ctx.shake = 22;
@@ -71,19 +75,22 @@ export const BreachSystem: System = {
       if (alive === 0) {
         ctx.status = 'gameover';
         ctx.endReason = k8s
-          ? 'Los 5 pods cayeron a la vez. El clúster no pudo recuperarse a tiempo.'
-          : 'Los 5 microservicios cayeron. No queda ningún servicio en pie.';
+          ? tr('All 5 pods fell at the same time. The cluster could not recover in time.', 'Los 5 pods cayeron a la vez. El clúster no pudo recuperarse a tiempo.')
+          : tr('All 5 microservices fell. No service is left standing.', 'Los 5 microservicios cayeron. No queda ningún servicio en pie.');
         sound(ctx, 'gameOver');
         return;
       }
       sound(ctx, 'laneDown');
       pushBanner(
         ctx,
-        `${SERVICE_NAMES[lane]} CAÍDO`,
+        `${SERVICE_NAMES[lane]} ${tr('DOWN', 'CAÍDO')}`,
         '#f87171',
         k8s
-          ? `"${name}" rompió el carril ${lane + 1}. Reinicio automático en ${POD_RESTART_TIME} s.`
-          : `"${name}" rompió el carril ${lane + 1}. Quedan ${alive}/5 servicios.`,
+          ? tr(
+              `"${name}" broke lane ${lane + 1}. Automatic restart in ${POD_RESTART_TIME} s.`,
+              `"${name}" rompió el carril ${lane + 1}. Reinicio automático en ${POD_RESTART_TIME} s.`,
+            )
+          : tr(`"${name}" broke lane ${lane + 1}. ${alive}/5 services left.`, `"${name}" rompió el carril ${lane + 1}. Quedan ${alive}/5 servicios.`),
         2.8,
       );
     }
