@@ -1,4 +1,4 @@
-import { MODE_ORDER, MODES, SERVICE_NAMES, TOTAL_WAVES, type Mode } from '../config';
+import { laneName, MODE_ORDER, MODES, REGIONS, TOTAL_WAVES, type Mode } from '../config';
 import type { GameContext, SoundName } from '../game/GameContext';
 import { onLangChange, t } from '../i18n';
 import { concept, type ConceptId, type Link } from '../learn/concepts';
@@ -254,7 +254,13 @@ export class Overlays {
     const win = ctx.status === 'victory';
     const spec = MODES[ctx.mode];
     const alive = ctx.lanesAlive.filter(Boolean).length;
-    const services = ctx.mode !== 'monolith' ? `<div><span>${t('Services up', 'Servicios en pie')}</span><b>${alive}/5</b></div>` : '';
+    const regionsUp = REGIONS.filter((r) => r.lanes.every((lane) => ctx.lanesAlive[lane])).length;
+    const services =
+      ctx.mode === 'multiRegion'
+        ? `<div><span>${t('Regions up', 'Regiones en pie')}</span><b>${regionsUp}/${REGIONS.length}</b></div>`
+        : ctx.mode !== 'monolith'
+          ? `<div><span>${t('Services up', 'Servicios en pie')}</span><b>${alive}/5</b></div>`
+          : '';
     const nextMode = MODE_ORDER[MODE_ORDER.indexOf(ctx.mode) + 1];
     const nextBtn = nextMode ? `<button class="btn" data-act="next" type="button">${t('Go to Level', 'Ir al Nivel')} ${MODES[nextMode].level}</button>` : '';
     const report = win ? this.retrospective(ctx) : this.postmortem(ctx);
@@ -296,7 +302,7 @@ export class Overlays {
     const timeline =
       ctx.incidents.length > 1
         ? `<h4>${t('Timeline', 'Cronología')}</h4><ol class="timeline">${ctx.incidents
-            .map((i) => `<li><span>${fmtTime(i.time)}</span> ${esc(SERVICE_NAMES[i.lane])}: ${esc(describeIncident(i))} <em>${esc(cause(i.cause).root)}</em></li>`)
+            .map((i) => `<li><span>${fmtTime(i.time)}</span> ${esc(laneName(ctx.mode, i.lane))}: ${esc(describeIncident(i))} <em>${esc(cause(i.cause).root)}</em></li>`)
             .join('')}</ol>`
         : '';
     return `
@@ -322,7 +328,7 @@ export class Overlays {
         <h3>${t('Retrospective', 'Retrospectiva')}</h3>
         <dl>
           <dt>${t('What you used most', 'Lo que más usaste')}</dt><dd>${top.length ? esc(top.join(' · ')) : t('No defense', 'Ninguna defensa')}</dd>
-          <dt>${t('Services down', 'Servicios caídos')}</dt><dd>${lost}</dd>
+          <dt>${ctx.mode === 'multiRegion' ? t('Regions down', 'Regiones caídas') : t('Services down', 'Servicios caídos')}</dt><dd>${lost}</dd>
           <dt>${t('Lesson', 'Lección')}</dt><dd>${esc(level.text)} ${link(level.read)}</dd>
         </dl>
       </section>`;

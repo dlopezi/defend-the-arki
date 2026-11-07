@@ -116,6 +116,7 @@ export class Game {
       monolith: t('One failure in any lane brings the whole system down', 'Un solo fallo en cualquier carril tumba todo el sistema'),
       microservices: t('Each lane is an independent service', 'Cada carril es un servicio independiente'),
       kubernetes: t('Fallen lanes restart by themselves', 'Los carriles caídos se reinician solos'),
+      multiRegion: t('If a region falls, the other one takes its traffic (failover)', 'Si cae una región, la otra recibe su tráfico (failover)'),
     };
     pushBanner(this.ctx, `${t('LEVEL', 'NIVEL')} ${spec.level} · ${spec.name.toUpperCase()}`, spec.color, subs[mode], 3);
     this.suspended = false;

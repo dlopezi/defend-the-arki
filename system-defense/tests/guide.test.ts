@@ -46,10 +46,12 @@ describe('Guide entries', () => {
     expect(sqli.sub).toBeUndefined();
   });
 
-  it('Rollback says it is free and only in levels 2 and 3', () => {
+  it('Rollback says it is free and in which levels (2 to 4)', () => {
     setLang('en');
     const rollback = guideEntries('defenses').find((e) => e.id === 'rollback')!;
-    expect(rollback).toMatchObject({ name: 'Rollback', kind: 'defense', sub: 'Free · levels 2 and 3' });
+    expect(rollback).toMatchObject({ name: 'Rollback', kind: 'defense', sub: 'Free · levels 2 to 4' });
+    setLang('es');
+    expect(guideEntries('defenses').find((e) => e.id === 'rollback')!.sub).toBe('Gratis · niveles 2 a 4');
     expect(rollback.play).toBeTruthy();
   });
 });

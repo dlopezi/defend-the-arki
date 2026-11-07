@@ -274,6 +274,10 @@ body {
   background: #450a0a;
   box-shadow: none;
 }
+/* Multi-region: gap between the two regions (3 + 2) */
+.lane-dot.region-end {
+  margin-right: 8px;
+}
 .lane-dot.restarting {
   background: #f59e0b;
   box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
@@ -375,7 +379,7 @@ body {
 }
 .levels {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 .level {
@@ -1676,7 +1680,7 @@ button {
 
   /* menu screens: use the width, since the height is short */
   .levels {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
   }
   .level {

@@ -21,10 +21,16 @@ export interface GuideEntry {
 
 const ROLLBACK_COLOR = '#22d3ee';
 
-/** "Free · levels 2 and 3": the levels come from the level rules, so they stay true. */
+/** "Free · levels 2 to 4": the levels come from the level rules, so they stay true. */
 function rollbackLevels(): string {
   const levels = MODE_ORDER.filter((m) => MODES[m].rollback).map((m) => MODES[m].level);
-  const list = levels.length > 1 ? `${levels.slice(0, -1).join(', ')} ${t('and', 'y')} ${levels[levels.length - 1]}` : String(levels[0] ?? '');
+  const first = levels[0];
+  const last = levels[levels.length - 1];
+  const inARow = levels.every((l, i) => l === first + i);
+  let list: string;
+  if (levels.length > 2 && inARow) list = `${first} ${t('to', 'a')} ${last}`;
+  else if (levels.length > 1) list = `${levels.slice(0, -1).join(', ')} ${t('and', 'y')} ${last}`;
+  else list = String(first ?? '');
   return t(`Free · level${levels.length > 1 ? 's' : ''} ${list}`, `Gratis · nivel${levels.length > 1 ? 'es' : ''} ${list}`);
 }
 

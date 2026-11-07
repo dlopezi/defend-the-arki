@@ -13,9 +13,12 @@ import {
   GRID_X,
   GRID_Y,
   LANES,
+  laneName,
   laneY,
   MODES,
   POD_RESTART_TIME,
+  REGION_RECOVERY_TIME,
+  REGIONS,
   SERVICE_NAMES,
   upgradePanelRect,
 } from '../config';
@@ -165,17 +168,18 @@ export class RenderSystem {
     }
 
     const k8s = ctx.mode === 'kubernetes';
+    const multi = ctx.mode === 'multiRegion';
     const accent = MODES[ctx.mode].color;
     for (let lane = 0; lane < LANES; lane++) {
       const alive = ctx.lanesAlive[lane];
-      const restarting = !alive && k8s && ctx.laneRestart[lane] > 0;
+      const restarting = !alive && ctx.laneRestart[lane] > 0;
       const x = 8;
       const y = GRID_Y + lane * CELL_H + 8;
       const w = BASE_DRAW_W;
       const h = CELL_H - 16;
       g.beginPath();
       g.roundRect(x, y, w, h, 8);
-      g.fillStyle = alive ? (k8s ? '#1e1b4b' : '#0f2a24') : restarting ? '#1c1917' : '#1f0b0b';
+      g.fillStyle = alive ? (k8s ? '#1e1b4b' : multi ? '#2a0f22' : '#0f2a24') : restarting ? '#1c1917' : '#1f0b0b';
       g.fill();
       g.strokeStyle = alive ? accent : restarting ? '#f59e0b' : '#7f1d1d';
       g.lineWidth = 2;
@@ -184,11 +188,11 @@ export class RenderSystem {
       g.textBaseline = 'middle';
       g.font = `700 11px ${MONO}`;
       g.fillStyle = alive ? '#e0e7ff' : restarting ? '#fcd34d' : '#7f1d1d';
-      g.fillText(k8s ? SERVICE_NAMES[lane].replace('-svc', '-pod') : SERVICE_NAMES[lane], x + w / 2, y + 16);
+      g.fillText(k8s ? SERVICE_NAMES[lane].replace('-svc', '-pod') : laneName(ctx.mode, lane), x + w / 2, y + 16);
       for (let i = 0; i < 3; i++) {
         g.beginPath();
         g.roundRect(x + 10 + i * 24, y + 30, 18, 16, 3);
-        g.fillStyle = alive ? (k8s ? '#3730a3' : '#065f46') : '#2a0e0e';
+        g.fillStyle = alive ? (k8s ? '#3730a3' : multi ? '#831843' : '#065f46') : '#2a0e0e';
         g.fill();
       }
       const on = Math.sin(time * 4 + lane) > -0.5;
@@ -200,6 +204,22 @@ export class RenderSystem {
       g.fillStyle = alive ? '#a7f3d0' : restarting ? '#fcd34d' : '#f87171';
       const status = alive ? '200 OK' : restarting ? `↻ ${Math.ceil(ctx.laneRestart[lane])}s` : '503';
       g.fillText(status, x + w / 2 + 6, y + h - 13);
+    }
+    // Multi-region: a line in the base between the two regions (after lane 3).
+    if (multi) {
+      for (const region of REGIONS.slice(0, -1)) {
+        const y = GRID_Y + (region.lanes[region.lanes.length - 1] + 1) * CELL_H;
+        g.save();
+        g.strokeStyle = accent;
+        g.lineWidth = 3;
+        g.shadowColor = accent;
+        g.shadowBlur = 8;
+        g.beginPath();
+        g.moveTo(2, y);
+        g.lineTo(BASE_DRAW_W + 14, y);
+        g.stroke();
+        g.restore();
+      }
     }
   }
 
@@ -392,11 +412,11 @@ export class RenderSystem {
 
   private drawDeadLanes(ctx: GameContext): void {
     const g = this.g;
-    const k8s = ctx.mode === 'kubernetes';
+    const multi = ctx.mode === 'multiRegion';
     for (let lane = 0; lane < LANES; lane++) {
       if (ctx.lanesAlive[lane]) continue;
       const y = GRID_Y + lane * CELL_H;
-      const restarting = k8s && ctx.laneRestart[lane] > 0;
+      const restarting = ctx.laneRestart[lane] > 0;
       g.fillStyle = 'rgba(2,4,10,0.78)';
       g.fillRect(GRID_X - 30, y, CANVAS_W - GRID_X + 30, CELL_H);
       g.save();
@@ -419,15 +439,16 @@ export class RenderSystem {
       if (restarting) {
         const left = ctx.laneRestart[lane];
         g.fillStyle = 'rgba(252,211,77,0.9)';
-        g.fillText(t(`Restarting pod… ${Math.ceil(left)} s`, `Reiniciando pod… ${Math.ceil(left)} s`), cx, y + CELL_H / 2 - 8);
+        const secs = Math.ceil(left);
+        g.fillText(multi ? t(`Recovering region… ${secs} s`, `Recuperando región… ${secs} s`) : t(`Restarting pod… ${secs} s`, `Reiniciando pod… ${secs} s`), cx, y + CELL_H / 2 - 8);
         const bw = 260;
         g.fillStyle = 'rgba(0,0,0,0.6)';
         g.fillRect(cx - bw / 2, y + CELL_H / 2 + 14, bw, 6);
         g.fillStyle = '#f59e0b';
-        g.fillRect(cx - bw / 2, y + CELL_H / 2 + 14, bw * (1 - left / POD_RESTART_TIME), 6);
+        g.fillRect(cx - bw / 2, y + CELL_H / 2 + 14, bw * (1 - left / (multi ? REGION_RECOVERY_TIME : POD_RESTART_TIME)), 6);
       } else {
         g.fillStyle = 'rgba(248,113,113,0.85)';
-        g.fillText(`503 SERVICE UNAVAILABLE · ${SERVICE_NAMES[lane]}`, cx, y + CELL_H / 2);
+        g.fillText(`503 SERVICE UNAVAILABLE · ${laneName(ctx.mode, lane)}`, cx, y + CELL_H / 2);
       }
     }
     if (ctx.mode === 'monolith' && ctx.status === 'gameover') {

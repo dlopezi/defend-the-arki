@@ -472,8 +472,8 @@ export class HomeMenu {
         'Las fichas volverán a salir durante la partida.',
       )}</span></div><button class="btn" data-opt="resetSeen" type="button">${t('Reset', 'Reiniciar')}</button></div>
       <div class="opt"><div><strong>${t('Clear records', 'Borrar récords')}</strong><span>${t(
-        'Clears the records of the 3 levels in this browser.',
-        'Borra los récords de los 3 niveles en este navegador.',
+        'Clears the records of all levels in this browser.',
+        'Borra los récords de todos los niveles en este navegador.',
       )}</span></div><button class="btn ${this.confirmClear ? 'danger' : ''}" data-opt="clearRecords" type="button">${
         this.confirmClear ? t('Sure? Press again', '¿Seguro? Pulsa otra vez') : t('Clear', 'Borrar')
       }</button></div>
