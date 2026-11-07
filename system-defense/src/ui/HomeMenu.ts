@@ -1,4 +1,5 @@
 import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, type Mode } from '../config';
+import type { SoundName } from '../game/GameContext';
 import { clearRecords, describeRecord, loadRecords } from '../game/records';
 import { CONCEPTS, type ConceptId } from '../learn/concepts';
 import { fitCanvas, loop } from './anim';
@@ -18,7 +19,21 @@ export interface HomeCallbacks {
   toggleMute(): void;
   resetSeen(): void;
   openConcept(id: ConceptId): void;
+  playSound(name: SoundName): void;
 }
+
+/** "Press start" was already passed in this browser tab. */
+const STARTED_KEY = 'system-defense:started';
+function readStarted(): boolean {
+  try {
+    return sessionStorage.getItem(STARTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Buttons that the arrow keys move between, on each screen. */
+const NAV = '.main-menu .menu-btn, .levels .level, .codex .codex-item, .screen-head .back, .tabs .tab';
 
 const TITLES: Record<Exclude<HomeScreen, 'main'>, string> = {
   levels: 'Elige un nivel',
@@ -46,6 +61,10 @@ export class HomeMenu {
   private generation = 0;
   /** Guide items under the mouse (they act: attack, fire…). */
   private readonly active = new Set<string>();
+  /** Title screen: "press start" passed (once per browser tab). */
+  private started = readStarted();
+  /** When the title screen was shown (seconds): the characters walk in from there. */
+  private introStart = -1;
 
   constructor(cb: HomeCallbacks) {
     this.cb = cb;
@@ -58,16 +77,53 @@ export class HomeMenu {
       this.confirmClear = false;
       this.notice = '';
     }
+    // The intro plays when the title screen opens, not when it only redraws.
+    if (screen === 'main' && (this.screen !== 'main' || this.introStart < 0)) this.introStart = performance.now() / 1000;
     this.screen = screen;
     this.render();
-    this.el.querySelector<HTMLButtonElement>('.menu-btn, .back')?.focus({ preventScroll: true });
+    this.el.querySelector<HTMLButtonElement>('.press-start, .menu-btn, .back')?.focus({ preventScroll: true });
   }
 
   /** Esc / "Volver". Returns false when already on the main screen. */
   back(): boolean {
     if (this.screen === 'main') return false;
+    this.cb.playSound('menuMove');
     this.show('main');
     return true;
+  }
+
+  /**
+   * Keys on the home view: any key passes "press start"; arrows move between buttons;
+   * Esc goes back. Returns true if the key was used.
+   */
+  key(key: string): boolean {
+    if (this.screen === 'main' && !this.started) {
+      if (key === 'Tab' || key === 'Shift' || key === 'Meta' || key === 'Alt' || key === 'Control') return false;
+      this.pressStart();
+      return true;
+    }
+    if (key === 'Escape') return this.back();
+    const dir = key === 'ArrowDown' || key === 'ArrowRight' ? 1 : key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 0;
+    if (!dir) return false;
+    const items = [...this.el.querySelectorAll<HTMLButtonElement>(NAV)];
+    if (items.length === 0) return false;
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = items[(i + dir + items.length) % items.length];
+    next.focus();
+    this.cb.playSound('menuMove');
+    return true;
+  }
+
+  private pressStart(): void {
+    this.started = true;
+    try {
+      sessionStorage.setItem(STARTED_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    this.cb.playSound('start');
+    this.render();
+    this.el.querySelector<HTMLButtonElement>('.menu-btn')?.focus({ preventScroll: true });
   }
 
   private render(): void {
@@ -88,12 +144,18 @@ export class HomeMenu {
     const icons = [...this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-icon]')];
     const scenes = [...this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-scene]')];
     if (!arena && icons.length === 0 && scenes.length === 0) return;
+    let still = false;
+    try {
+      still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      still = false;
+    }
     const frame = (t: number): void => {
       if (arena) {
         const w = arena.clientWidth;
         const h = arena.clientHeight;
         const g = w > 0 && h > 0 ? fitCanvas(arena, w, h) : null;
-        if (g) drawArena(g, w, h, t);
+        if (g) drawArena(g, w, h, t, still ? 99 : t - this.introStart);
       }
       icons.forEach((c, i) => {
         const id = c.dataset.icon as ConceptId;
@@ -105,12 +167,6 @@ export class HomeMenu {
         if (step && g) step.draw(g, t);
       });
     };
-    let still = false;
-    try {
-      still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    } catch {
-      still = false;
-    }
     if (still) {
       requestAnimationFrame(() => frame(1.2));
       return;
@@ -122,23 +178,55 @@ export class HomeMenu {
 
   private mainScreen(): string {
     const s = this.cb.getSuspended();
-    const cont = s
-      ? `<button class="menu-btn primary" data-go="continue" type="button">▶ Continuar <small>Nivel ${MODES[s.mode].level} · ${s.wave > 0 ? `Ola ${s.wave}` : 'Preparación'}</small></button>`
-      : '';
+    const items: [string, string, string][] = [
+      ...(s ? ([['continue', 'Continuar', `Nivel ${MODES[s.mode].level} · ${s.wave > 0 ? `Ola ${s.wave}` : 'Preparación'}`]] as [string, string, string][]) : []),
+      ['levels', 'Jugar', ''],
+      ['guide', 'Guía', ''],
+      ['howto', 'Cómo jugar', ''],
+      ['options', 'Opciones', ''],
+    ];
+    const menu = items
+      .map(
+        ([go, label, sub], i) =>
+          `<button class="menu-btn${i === 0 ? ' primary' : ''}" data-go="${go}" type="button" style="--i:${i}">${label}${sub ? `<small>${esc(sub)}</small>` : ''}</button>`,
+      )
+      .join('');
+    const actions = this.started
+      ? `<nav class="main-menu" aria-label="Menú principal">${menu}</nav>`
+      : `<button class="press-start" data-go="press" type="button">Pulsa para empezar<small>clic o cualquier tecla</small></button>`;
+    const muted = this.cb.getMuted();
     return `
       <canvas class="arena" aria-hidden="true"></canvas>
       <div class="title-screen">
         <p class="eyebrow">Tower defense de arquitectura de sistemas</p>
-        <h1 class="logo">System<span>Defense</span></h1>
+        <h1 class="logo"><span class="logo-a">System</span><span class="logo-b">Defense</span></h1>
         <p class="tagline">Defiende tu arquitectura del tráfico hostil.</p>
-        <nav class="main-menu" aria-label="Menú principal">
-          ${cont}
-          <button class="menu-btn ${s ? '' : 'primary'}" data-go="levels" type="button">Jugar</button>
-          <button class="menu-btn" data-go="guide" type="button">Guía</button>
-          <button class="menu-btn" data-go="howto" type="button">Cómo jugar</button>
-          <button class="menu-btn" data-go="options" type="button">Opciones</button>
-        </nav>
-      </div>`;
+        ${actions}
+      </div>
+      <footer class="title-foot">
+        <span class="best">${esc(this.bestLine())}</span>
+        <span class="hint">${this.started ? '↑ ↓ elegir · Enter aceptar · Esc volver' : ''}</span>
+        <span class="foot-right">
+          <button class="icon-btn" data-opt="quickSound" type="button" aria-pressed="${!muted}">${muted ? '🔇 Sonido: no' : '🔊 Sonido: sí'}</button>
+          <span class="ver">v${__APP_VERSION__}</span>
+        </span>
+      </footer>`;
+  }
+
+  /** Best result in any level, for the title screen. */
+  private bestLine(): string {
+    const records = loadRecords();
+    let best: { mode: Mode; wave: number; won: boolean } | null = null;
+    for (const m of MODE_ORDER) {
+      const r = records[m];
+      if (r.bestWave === 0 && !r.won) continue;
+      const score = (r.won ? 100 : 0) + r.bestWave;
+      const bestScore = best ? (best.won ? 100 : 0) + best.wave : -1;
+      if (score > bestScore || (score === bestScore && MODES[m].level > MODES[best!.mode].level)) best = { mode: m, wave: r.bestWave, won: r.won };
+    }
+    if (!best) return '🏆 Sin récords todavía: ¡juega tu primera partida!';
+    const spec = MODES[best.mode];
+    return best.won ? `🏆 Mejor: victoria en Nivel ${spec.level} · ${spec.name}` : `🏆 Mejor: Nivel ${spec.level} · ${spec.name} · ola ${best.wave}`;
   }
 
   private subScreen(screen: Exclude<HomeScreen, 'main'>): string {
@@ -250,15 +338,37 @@ export class HomeMenu {
   /* ---------- Events ---------- */
 
   private bind(): void {
+    // "Pulsa para empezar": a click anywhere on the title screen also starts.
+    if (this.screen === 'main' && !this.started) {
+      this.el.querySelector('.home-panel')?.addEventListener('click', (e) => {
+        if (!(e.target as Element).closest('button')) this.pressStart();
+      });
+    }
     this.el.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => {
       b.addEventListener('click', () => {
         const go = b.dataset.go;
+        if (go === 'press') {
+          this.pressStart();
+          return;
+        }
+        this.cb.playSound('menuSelect');
         if (go === 'continue') this.cb.onContinue();
         else this.show(go as HomeScreen);
       });
     });
     this.el.querySelectorAll<HTMLButtonElement>('.level').forEach((b) => {
-      b.addEventListener('click', () => this.cb.onStart(b.dataset.mode as Mode));
+      b.addEventListener('click', () => {
+        this.cb.playSound('start');
+        this.cb.onStart(b.dataset.mode as Mode);
+      });
+    });
+    // Mouse over a menu button selects it, like the arrow keys.
+    this.el.querySelectorAll<HTMLButtonElement>('.main-menu .menu-btn, .levels .level').forEach((b) => {
+      b.addEventListener('pointerenter', (e) => {
+        if (e.pointerType !== 'mouse' || document.activeElement === b) return;
+        b.focus({ preventScroll: true });
+        this.cb.playSound('menuMove');
+      });
     });
     this.el.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => {
       b.addEventListener('click', () => {
@@ -281,6 +391,18 @@ export class HomeMenu {
   }
 
   private option(key: string, on: boolean): void {
+    if (key === 'quickSound') {
+      // title screen button: no full redraw (the intro would play again)
+      this.cb.toggleMute();
+      const muted = this.cb.getMuted();
+      const b = this.el.querySelector<HTMLButtonElement>('[data-opt="quickSound"]');
+      if (b) {
+        b.textContent = muted ? '🔇 Sonido: no' : '🔊 Sonido: sí';
+        b.setAttribute('aria-pressed', String(!muted));
+      }
+      if (!muted) this.cb.playSound('menuSelect');
+      return;
+    }
     this.notice = '';
     if (key !== 'clearRecords') this.confirmClear = false;
     switch (key) {

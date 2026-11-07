@@ -1,5 +1,5 @@
 import { MODE_ORDER, MODES, SERVICE_NAMES, TOTAL_WAVES, type Mode } from '../config';
-import type { GameContext } from '../game/GameContext';
+import type { GameContext, SoundName } from '../game/GameContext';
 import { CONCEPTS, type ConceptId, type Link } from '../learn/concepts';
 import { CAUSES, describeIncident, levelLessonLoss, levelLessonWin, topDefenses } from '../learn/postmortem';
 import { HomeMenu } from './HomeMenu';
@@ -18,6 +18,7 @@ export interface OverlayCallbacks {
   getMuted(): boolean;
   toggleMute(): void;
   resetSeen(): void;
+  playSound(name: SoundName): void;
 }
 
 type Screen = 'menu' | 'pause' | 'end' | 'concept' | 'none';
@@ -66,6 +67,7 @@ export class Overlays {
       getMuted: () => cb.getMuted(),
       toggleMute: () => cb.toggleMute(),
       resetSeen: () => cb.resetSeen(),
+      playSound: (name) => cb.playSound(name),
       // The card opens over the home view; closing it just hides the card.
       openConcept: (id) => this.showConcept(id, { inGame: false, onClose: () => undefined }),
     });
@@ -87,9 +89,9 @@ export class Overlays {
     this.show('menu');
   }
 
-  /** Esc on the home view: back to the main screen. */
-  homeBack(): void {
-    this.homeMenu.back();
+  /** A key pressed on the home view (menu navigation). Returns true if it was used. */
+  homeKey(key: string): boolean {
+    return this.homeMenu.key(key);
   }
 
   get conceptOpen(): boolean {

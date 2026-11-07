@@ -3,12 +3,12 @@ import { SvgSprite } from './svgSprite';
 
 /*
  * Technique C · SVG illustration — Black Friday.
- * Parts are .svg files in public/proto/black-friday/ (editable in Figma or Inkscape),
+ * Parts are .svg files in src/dev/proto/assets/black-friday/ (editable in Figma or Inkscape),
  * drawn with the same rig transforms as technique A. At runtime: only drawImage
  * plus a few cheap particles (budget in FX_LIMITS).
  */
 
-const sprite = new SvgSprite('/proto/black-friday/', {
+const sprite = new SvgSprite('/src/dev/proto/assets/black-friday/', {
   chassis: { vb: [-32, 30, 76, 24] },
   body: { vb: [-80, -80, 150, 125] },
   jaw: { vb: [-58, -16, 64, 44] },

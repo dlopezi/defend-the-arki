@@ -2,12 +2,12 @@ import { Sfx } from '../audio/Sfx';
 import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, type Mode, type Tool } from '../config';
 import { World } from '../ecs/World';
 import { RenderSystem } from '../render/RenderSystem';
-import { EffectSystem, SYSTEMS } from '../systems';
 import { Hud } from '../ui/Hud';
 import { Overlays } from '../ui/Overlays';
 import { createRollback } from './factories';
 import { createContext, pushBanner, type GameContext } from './GameContext';
 import { saveResult } from './records';
+import { stepGame } from './step';
 import { loadEnabled, loadSeen, saveEnabled, saveSeen } from '../learn/prefs';
 
 /** Max fixed steps per frame, so a slow frame cannot freeze the page. */
@@ -56,6 +56,10 @@ export class Game {
       resetSeen: () => {
         saveSeen(new Set());
         this.ctx.seen.clear();
+      },
+      playSound: (name) => {
+        this.sfx.unlock();
+        this.sfx.play(name);
       },
     });
 
@@ -207,6 +211,19 @@ export class Game {
   /* ---------- Game loop ---------- */
 
   private readonly frame = (now: number): void => {
+    // Schedule the next frame first: if this one throws, the game keeps running.
+    requestAnimationFrame(this.frame);
+    try {
+      this.tick(now);
+    } catch (err) {
+      if (!this.reported) console.error('System Defense: frame error', err);
+      this.reported = true;
+    }
+  };
+
+  private reported = false;
+
+  private tick(now: number): void {
     const real = Math.min(0.25, (now - this.last) / 1000);
     this.last = now;
 
@@ -238,23 +255,11 @@ export class Game {
       this.fpsFrames = 0;
       this.fpsTime = 0;
     }
-    requestAnimationFrame(this.frame);
-  };
+  }
 
   private step(dt: number): void {
     const ctx = this.ctx;
-    if (ctx.status === 'playing') {
-      for (const system of SYSTEMS) {
-        system.update(this.world, ctx, dt);
-        if (ctx.status !== 'playing') break;
-      }
-      this.world.flush();
-      ctx.time += dt;
-    } else if (ctx.status === 'gameover' || ctx.status === 'victory') {
-      // Let explosions and particles finish after the end.
-      EffectSystem.update(this.world, ctx, dt);
-      this.world.flush();
-    }
+    stepGame(this.world, ctx, dt);
 
     if ((ctx.status === 'gameover' || ctx.status === 'victory') && !this.endShown) {
       this.endShown = true;
@@ -311,7 +316,7 @@ export class Game {
         return;
       }
       if (this.shell.classList.contains('view-home')) {
-        if (key === 'escape') this.overlays.homeBack();
+        if (this.overlays.homeKey(e.key)) e.preventDefault();
         return;
       }
       const def = DEFENSE_ORDER.find((d) => DEFENSES[d].hotkey === key);

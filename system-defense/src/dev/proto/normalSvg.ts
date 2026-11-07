@@ -14,7 +14,7 @@ const SHOULDER = { front: [-4, -4], back: [6, -4] } as const;
 const PIVOT = [0, 14] as const;
 
 const sprite = new SvgSprite(
-  '/proto/normal/',
+  '/src/dev/proto/assets/normal/',
   {
     body: { vb: [-26, -38, 46, 58] },
     armFront: { vb: [-32, -8, 36, 32] },

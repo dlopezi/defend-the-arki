@@ -2,7 +2,7 @@ import type { SoundName } from '../game/GameContext';
 
 const STORAGE_KEY = 'system-defense:muted';
 /** Minimum seconds between two plays of the same sound. */
-const THROTTLE: Partial<Record<SoundName, number>> = { shoot: 0.09, collect: 0.05, capture: 0.1, split: 0.1 };
+const THROTTLE: Partial<Record<SoundName, number>> = { shoot: 0.09, collect: 0.05, capture: 0.1, split: 0.1, menuMove: 0.06 };
 
 /** Small synthesizer with Web Audio: no audio files needed. */
 export class Sfx {
@@ -108,6 +108,17 @@ export class Sfx {
       case 'split':
         this.tone(500, 0.06, 'square', 0.25, 900);
         this.tone(600, 0.06, 'square', 0.25, 1000, 0.05);
+        break;
+      case 'menuMove':
+        this.tone(1480, 0.03, 'square', 0.08);
+        break;
+      case 'menuSelect':
+        this.tone(660, 0.06, 'square', 0.18);
+        this.tone(990, 0.09, 'square', 0.18, undefined, 0.05);
+        break;
+      case 'start':
+        this.tone(220, 0.35, 'sawtooth', 0.22, 880);
+        [523, 784, 1047].forEach((f, i) => this.tone(f, 0.14, 'triangle', 0.35, undefined, 0.25 + i * 0.08));
         break;
     }
   }

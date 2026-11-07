@@ -23,7 +23,10 @@ export type SoundName =
   | 'smash'
   | 'capture'
   | 'encrypt'
-  | 'split';
+  | 'split'
+  | 'menuMove'
+  | 'menuSelect'
+  | 'start';
 
 export interface Point {
   x: number;

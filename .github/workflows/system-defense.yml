@@ -1,0 +1,43 @@
+name: system-defense
+
+on:
+  push:
+    paths: ['system-defense/**', '.github/workflows/system-defense.yml']
+  pull_request:
+    paths: ['system-defense/**', '.github/workflows/system-defense.yml']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: system-defense
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: system-defense/package-lock.json
+      - run: npm ci
+      # types + 40 tests (rules, full games, engine load) + production build
+      - run: npm run check
+      - name: HTTP load test on the production build
+        run: |
+          npx vite preview --port 4173 --strictPort &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/ >/dev/null && break; sleep 1; done
+          npm run loadtest -- --url http://localhost:4173 --connections 100 --duration 10
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image (runs the tests again inside)
+        run: docker build -t system-defense:ci system-defense
+      - name: Smoke test the container
+        run: |
+          docker run -d --name sd -p 8080:8080 system-defense:ci
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/ >/dev/null && break; sleep 1; done
+          curl -sI http://localhost:8080/ | grep -i "content-security-policy"
+          curl -s http://localhost:8080/ | grep -q "<title>System Defense"

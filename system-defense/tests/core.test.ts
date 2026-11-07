@@ -1,0 +1,106 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { COLS, DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, LANES, MODE_ORDER, TOTAL_WAVES, type EnemyType } from '../src/config';
+import { World } from '../src/ecs/World';
+import { buildWave, countByType } from '../src/game/waves';
+import { CONCEPTS, type ConceptId } from '../src/learn/concepts';
+import { DEFENSE_ART } from '../src/render/defenseArt';
+import { ENEMY_ART } from '../src/render/enemyArt';
+import { seedRandom } from './harness';
+
+describe('ECS world', () => {
+  it('creates entities, queries by components and destroys at flush', () => {
+    const w = new World();
+    const a = w.create();
+    const b = w.create();
+    w.add(a, 'transform', { x: 1, y: 2 });
+    w.add(b, 'transform', { x: 3, y: 4 });
+    w.add(b, 'lane', { lane: 2 });
+    expect(w.query('transform').length).toBe(2);
+    expect(w.query('transform', 'lane')).toEqual([b]);
+    w.destroy(b);
+    expect(w.isAlive(b)).toBe(false);
+    // still stored until the end of the tick
+    expect(w.get(b, 'lane')).toBeDefined();
+    w.flush();
+    expect(w.query('transform')).toEqual([a]);
+    expect(w.get(b, 'lane')).toBeUndefined();
+    expect(() => w.req(b, 'transform')).toThrow();
+  });
+});
+
+describe('config', () => {
+  it('board is 5 lanes × 9 columns', () => {
+    expect(LANES).toBe(5);
+    expect(COLS).toBe(9);
+  });
+
+  it('every defense and threat has sane numbers', () => {
+    for (const d of DEFENSE_ORDER) {
+      const s = DEFENSES[d];
+      expect(s.cost, d).toBeGreaterThan(0);
+      expect(s.hp, d).toBeGreaterThan(0);
+      expect(s.cooldown, d).toBeGreaterThanOrEqual(0);
+    }
+    for (const e of Object.keys(ENEMIES) as EnemyType[]) {
+      const s = ENEMIES[e];
+      expect(s.hp, e).toBeGreaterThan(0);
+      expect(s.speed, e).toBeGreaterThan(0);
+      expect(s.width, e).toBeGreaterThan(0);
+    }
+    // spec: DDoS slow with very high hp, Black Friday the slowest with the most hp
+    expect(ENEMIES.ddos.speed).toBeLessThan(ENEMIES.normal.speed);
+    expect(ENEMIES.ddos.hp).toBeGreaterThan(ENEMIES.scraper.hp);
+    expect(ENEMIES.scraper.hp).toBeGreaterThan(ENEMIES.normal.hp);
+    expect(ENEMIES.zeroDay.speed).toBeGreaterThan(ENEMIES.normal.speed);
+    for (const e of Object.keys(ENEMIES) as EnemyType[]) {
+      if (e === 'blackFriday') continue;
+      expect(ENEMIES.blackFriday.hp).toBeGreaterThan(ENEMIES[e].hp);
+      expect(ENEMIES.blackFriday.speed).toBeLessThanOrEqual(ENEMIES[e].speed);
+    }
+  });
+
+  it('every element has a drawing and a concept card', () => {
+    for (const d of DEFENSE_ORDER) {
+      expect(DEFENSE_ART[d], d).toBeTypeOf('function');
+      expect(CONCEPTS[d], d).toBeDefined();
+    }
+    for (const e of Object.keys(ENEMIES) as EnemyType[]) expect(ENEMY_ART[e], e).toBeTypeOf('function');
+    for (const e of ENEMY_ORDER) expect(CONCEPTS[e as ConceptId], e).toBeDefined();
+    expect(CONCEPTS.rollback).toBeDefined();
+    expect(MODE_ORDER).toEqual(['monolith', 'microservices', 'kubernetes']);
+  });
+});
+
+describe('waves', () => {
+  let restore: () => void;
+  beforeEach(() => {
+    restore = seedRandom(7);
+  });
+  afterEach(() => restore());
+
+  it('get bigger and harder every wave', () => {
+    let prevCount = 0;
+    let prevHp = 0;
+    for (let n = 1; n <= TOTAL_WAVES; n++) {
+      const w = buildWave(n);
+      expect(w.queue.length).toBeGreaterThan(prevCount);
+      expect(w.hpScale).toBeGreaterThan(prevHp);
+      expect(w.interval).toBeGreaterThan(0);
+      expect(w.surgeAt).toBeLessThan(w.queue.length);
+      expect(w.queue.slice(0, 2)).toEqual(['normal', 'normal']);
+      prevCount = w.queue.length;
+      prevHp = w.hpScale;
+    }
+  });
+
+  it('Black Friday comes in waves 5, 8 and 10 (twice in the last one)', () => {
+    const bf = (n: number) => buildWave(n).queue.filter((t) => t === 'blackFriday').length;
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(bf)).toEqual([0, 0, 0, 0, 1, 0, 0, 1, 0, 2]);
+  });
+
+  it('the preview counts every threat of the wave', () => {
+    const w = buildWave(9);
+    const total = countByType(w.queue).reduce((s, c) => s + c.count, 0);
+    expect(total).toBe(w.queue.length);
+  });
+});

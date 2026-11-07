@@ -17,7 +17,7 @@ const NECK = [-18, -30] as const;
 const SHED = 3;
 
 const sprite = new SvgSprite(
-  '/proto/ddos/',
+  '/src/dev/proto/assets/ddos/',
   {
     torso: { vb: [-42, -46, 84, 78] },
     head: { vb: [-15, -19, 28, 23] },
