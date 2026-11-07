@@ -1,5 +1,7 @@
 import type { DefenseType, EnemyType } from '../config';
 import type { EnemyState } from '../components';
+import { DEFENSE_ART, rollbackArt } from './defenseArt';
+import { attackPulse, ENEMY_ART } from './enemyArt';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -24,6 +26,8 @@ function label(g: G, text: string, x: number, y: number, size: number, color: st
 
 export interface DefenseDrawOpts {
   flash?: number;
+  /** 0..1 short push: recoil after firing, shake when hit. */
+  kick?: number;
   /** Remaining fuse 0..1 (Circuit Breaker armed). */
   fuse?: number;
   /** Generator charge 0..1 (Worker Node). */
@@ -60,7 +64,7 @@ function padlock(g: G, x: number, y: number, s: number): void {
   g.restore();
 }
 
-/** Draws a defense centered at (x, y), about 70x70 px. */
+/** Draws a defense centered at (x, y), about 70x70 px, with the avatar chosen on the avatar picker page. */
 export function drawDefense(g: G, type: DefenseType, x: number, y: number, time: number, o: DefenseDrawOpts = {}): void {
   g.save();
   g.translate(x, y);
@@ -68,285 +72,20 @@ export function drawDefense(g: G, type: DefenseType, x: number, y: number, time:
   g.beginPath();
   g.ellipse(0, 37, 30, 6, 0, 0, TAU);
   g.fill();
-  g.lineWidth = 2;
+  g.save();
+  DEFENSE_ART[type](g, {
+    t: time,
+    kick: o.kick ?? 0,
+    charge: o.charge ?? 0,
+    fuse: o.fuse,
+    hp: o.hpRatio ?? 1,
+    ready: o.trapReady ?? 1,
+    busy: o.trapBusy ?? false,
+    level: o.level === 2 ? 2 : 1,
+  });
+  g.restore();
 
-  switch (type) {
-    case 'worker': {
-      rr(g, -28, -36, 56, 70, 7);
-      g.fillStyle = '#0f2a3d';
-      g.fill();
-      g.strokeStyle = '#38bdf8';
-      g.stroke();
-      for (let i = 0; i < 4; i++) {
-        const sy = -28 + i * 13.5;
-        rr(g, -21, sy, 42, 10, 2);
-        g.fillStyle = '#081521';
-        g.fill();
-        g.fillStyle = '#1e4a66';
-        g.fillRect(-17, sy + 3, 18, 2);
-        g.fillRect(-17, sy + 6, 11, 1.5);
-        const on = Math.sin(time * 5 + i * 1.7) > -0.3;
-        g.fillStyle = on ? '#4ade80' : '#14532d';
-        circle(g, 14, sy + 5, 2.4);
-        g.fill();
-      }
-      rr(g, -21, 26, 42, 4, 2);
-      g.fillStyle = '#081521';
-      g.fill();
-      if (o.charge !== undefined) {
-        rr(g, -21, 26, 42 * Math.max(0.02, o.charge), 4, 2);
-        g.fillStyle = '#fde047';
-        g.fill();
-      }
-      break;
-    }
-    case 'loadBalancer': {
-      rr(g, 24, -7, 18, 14, 3);
-      g.fillStyle = '#1d4ed8';
-      g.fill();
-      g.strokeStyle = '#93c5fd';
-      g.stroke();
-      rr(g, -30, -30, 60, 60, 12);
-      g.fillStyle = '#0d2350';
-      g.fill();
-      g.strokeStyle = '#60a5fa';
-      g.stroke();
-      g.strokeStyle = '#93c5fd';
-      g.lineWidth = 2;
-      const outs = [-13, 0, 13];
-      for (const oy of outs) {
-        g.beginPath();
-        g.moveTo(-12, -4);
-        g.lineTo(12, oy - 4);
-        g.stroke();
-      }
-      g.fillStyle = '#93c5fd';
-      circle(g, -12, -4, 5);
-      g.fill();
-      outs.forEach((oy, i) => {
-        const pulse = Math.sin(time * 6 - i) > 0;
-        g.fillStyle = pulse ? '#4ade80' : '#166534';
-        circle(g, 14, oy - 4, 3.6);
-        g.fill();
-      });
-      label(g, 'LB', 0, 20, 10, '#bfdbfe');
-      break;
-    }
-    case 'redis': {
-      for (let i = 0; i < 3; i++) {
-        const cy = 20 - i * 19;
-        g.fillStyle = '#991b1b';
-        g.fillRect(-28, cy - 7, 56, 14);
-        g.beginPath();
-        g.ellipse(0, cy + 7, 28, 8, 0, 0, Math.PI);
-        g.fill();
-        g.fillStyle = '#ef4444';
-        g.beginPath();
-        g.ellipse(0, cy - 7, 28, 8, 0, 0, TAU);
-        g.fill();
-        g.strokeStyle = '#fecaca';
-        g.lineWidth = 1;
-        g.stroke();
-      }
-      label(g, 'redis', 0, 5, 10, '#fff1f2');
-      const hp = o.hpRatio ?? 1;
-      if (hp < 0.66) {
-        g.strokeStyle = '#1f0505';
-        g.lineWidth = 2;
-        g.beginPath();
-        g.moveTo(-18, -20);
-        g.lineTo(-8, -6);
-        g.lineTo(-14, 6);
-        g.lineTo(-4, 20);
-        g.stroke();
-      }
-      if (hp < 0.33) {
-        g.beginPath();
-        g.moveTo(20, -24);
-        g.lineTo(10, -10);
-        g.lineTo(18, 2);
-        g.lineTo(8, 18);
-        g.stroke();
-      }
-      break;
-    }
-    case 'rateLimiter': {
-      rr(g, 24, -7, 18, 14, 3);
-      g.fillStyle = '#6d28d9';
-      g.fill();
-      g.strokeStyle = '#c4b5fd';
-      g.stroke();
-      rr(g, -30, -30, 60, 60, 10);
-      g.fillStyle = '#2a0f5c';
-      g.fill();
-      g.strokeStyle = '#a78bfa';
-      g.stroke();
-      g.strokeStyle = '#c4b5fd';
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(0, 10, 18, Math.PI, TAU);
-      g.stroke();
-      const ang = Math.PI + (0.5 + 0.38 * Math.sin(time * 2.2)) * Math.PI;
-      g.strokeStyle = '#f472b6';
-      g.lineWidth = 2.5;
-      g.beginPath();
-      g.moveTo(0, 10);
-      g.lineTo(Math.cos(ang) * 15, 10 + Math.sin(ang) * 15);
-      g.stroke();
-      label(g, '429', 0, -18, 11, '#ddd6fe');
-      label(g, 'req/s', 0, 21, 8, '#a78bfa');
-      break;
-    }
-    case 'circuitBreaker': {
-      const armed = o.fuse !== undefined;
-      const s = armed ? 1 + 0.07 * Math.sin(time * 40) : 1;
-      g.scale(s, s);
-      rr(g, -28, -32, 56, 64, 6);
-      g.save();
-      g.fillStyle = '#facc15';
-      g.fill();
-      g.clip();
-      g.fillStyle = '#111827';
-      for (let i = -6; i < 6; i++) {
-        g.beginPath();
-        g.moveTo(i * 14, -32);
-        g.lineTo(i * 14 + 7, -32);
-        g.lineTo(i * 14 + 7 + 64, 32);
-        g.lineTo(i * 14 + 64, 32);
-        g.fill();
-      }
-      g.restore();
-      g.strokeStyle = '#000';
-      rr(g, -28, -32, 56, 64, 6);
-      g.stroke();
-      rr(g, -17, -19, 34, 38, 4);
-      g.fillStyle = '#1c1917';
-      g.fill();
-      rr(g, -6, armed ? 0 : -14, 12, 14, 2);
-      g.fillStyle = armed ? '#dc2626' : '#22c55e';
-      g.fill();
-      label(g, armed ? 'OPEN' : 'ON', 0, armed ? -10 : 9, 8, '#e5e7eb');
-      if (armed) {
-        const k = 1 - (o.fuse ?? 0);
-        const blink = 0.5 + 0.5 * Math.sin(time * (14 + k * 50));
-        g.globalAlpha = 0.25 + 0.45 * blink;
-        rr(g, -28, -32, 56, 64, 6);
-        g.fillStyle = '#ef4444';
-        g.fill();
-        g.globalAlpha = 1;
-      }
-      break;
-    }
-    case 'waf': {
-      rr(g, -25, -44, 50, 80, 6);
-      g.fillStyle = '#134e4a';
-      g.fill();
-      g.strokeStyle = '#2dd4bf';
-      g.stroke();
-      g.strokeStyle = 'rgba(45,212,191,0.35)';
-      g.lineWidth = 1.5;
-      for (let r = 0; r < 7; r++) {
-        const by = -36 + r * 11;
-        g.beginPath();
-        g.moveTo(-25, by);
-        g.lineTo(25, by);
-        g.stroke();
-        const off = r % 2 === 0 ? -8 : 8;
-        g.beginPath();
-        g.moveTo(off, by);
-        g.lineTo(off, by + 11);
-        g.stroke();
-      }
-      // shield
-      g.beginPath();
-      g.moveTo(0, -18);
-      g.lineTo(13, -12);
-      g.lineTo(11, 4);
-      g.lineTo(0, 13);
-      g.lineTo(-11, 4);
-      g.lineTo(-13, -12);
-      g.closePath();
-      g.fillStyle = '#0f766e';
-      g.fill();
-      g.strokeStyle = '#99f6e4';
-      g.lineWidth = 2;
-      g.stroke();
-      label(g, 'WAF', 0, -3, 10, '#f0fdfa');
-      const hp = o.hpRatio ?? 1;
-      if (hp < 0.5) {
-        g.strokeStyle = '#042f2e';
-        g.lineWidth = 2;
-        g.beginPath();
-        g.moveTo(-18, -34);
-        g.lineTo(-8, -22);
-        g.lineTo(-16, -8);
-        g.stroke();
-      }
-      break;
-    }
-    case 'cdn': {
-      g.fillStyle = '#be185d';
-      g.strokeStyle = '#fbcfe8';
-      for (const a of [-0.55, 0, 0.55]) {
-        g.save();
-        g.rotate(a);
-        rr(g, 20, -5, 18, 10, 3);
-        g.fill();
-        g.stroke();
-        g.restore();
-      }
-      circle(g, 0, 0, 25);
-      g.fillStyle = '#500724';
-      g.fill();
-      g.strokeStyle = '#f472b6';
-      g.lineWidth = 2;
-      g.stroke();
-      g.strokeStyle = 'rgba(244,114,182,0.55)';
-      g.lineWidth = 1.5;
-      const spin = Math.sin(time * 1.5) * 8;
-      g.beginPath();
-      g.ellipse(0, 0, Math.abs(spin) + 4, 25, 0, 0, TAU);
-      g.stroke();
-      g.beginPath();
-      g.ellipse(0, 0, 25, 9, 0, 0, TAU);
-      g.stroke();
-      g.beginPath();
-      g.moveTo(-25, 0);
-      g.lineTo(25, 0);
-      g.stroke();
-      label(g, 'CDN', 0, 13, 9, '#fce7f3');
-      break;
-    }
-    case 'kafka': {
-      const ready = o.trapReady ?? 1;
-      rr(g, -38, 4, 76, 28, 6);
-      g.fillStyle = '#431407';
-      g.fill();
-      g.strokeStyle = '#fb923c';
-      g.lineWidth = 2;
-      g.stroke();
-      const segs = 6;
-      for (let i = 0; i < segs; i++) {
-        const lit = o.trapBusy ? Math.floor(time * 8) % segs === i : i / segs < ready;
-        rr(g, -33 + i * 11.2, 10, 9, 16, 2);
-        g.fillStyle = lit ? '#fdba74' : '#7c2d12';
-        g.fill();
-      }
-      // topic tag
-      rr(g, -20, -16, 40, 16, 4);
-      g.fillStyle = '#7c2d12';
-      g.fill();
-      label(g, 'kafka', 0, -8, 9, '#ffedd5');
-      break;
-    }
-  }
-
-  if (o.level === 2) {
-    rr(g, 12, -46, 22, 14, 4);
-    g.fillStyle = '#fde047';
-    g.fill();
-    label(g, 'v2', 23, -39, 9, '#422006');
-  }
+  // The v2 look is part of each avatar (gold accents), so there is no generic "v2" tag here.
   if (o.throttled) {
     rr(g, -34, -46, 22, 14, 4);
     g.fillStyle = '#0369a1';
@@ -371,7 +110,7 @@ export function drawDefense(g: G, type: DefenseType, x: number, y: number, time:
   g.restore();
 }
 
-/** One-time Rollback waiting next to the base, or sweeping the lane. */
+/** One-time Rollback (Ctrl + Z keys) waiting next to the base, or sweeping the lane. */
 export function drawRollback(g: G, x: number, y: number, running: boolean, time: number): void {
   g.save();
   g.translate(x, y);
@@ -381,26 +120,10 @@ export function drawRollback(g: G, x: number, y: number, running: boolean, time:
     grad.addColorStop(1, 'rgba(34,211,238,0.45)');
     g.fillStyle = grad;
     g.fillRect(-90, -40, 90, 80);
-    g.rotate(time * 12);
   }
-  rr(g, -14, -16, 28, 32, 7);
-  g.fillStyle = '#083344';
-  g.fill();
-  g.strokeStyle = '#22d3ee';
-  g.lineWidth = 2;
-  g.stroke();
-  g.beginPath();
-  g.arc(0, 0, 8, Math.PI * 0.35, Math.PI * 1.9);
-  g.stroke();
-  const ax = Math.cos(Math.PI * 0.35) * 8;
-  const ay = Math.sin(Math.PI * 0.35) * 8;
-  g.fillStyle = '#22d3ee';
-  g.beginPath();
-  g.moveTo(ax + 4, ay - 4);
-  g.lineTo(ax - 4, ay + 1);
-  g.lineTo(ax + 3, ay + 5);
-  g.closePath();
-  g.fill();
+  // smaller than a defense: it waits in the narrow gap next to the base
+  g.scale(0.72, 0.72);
+  rollbackArt(g, running, time);
   g.restore();
 }
 
@@ -413,11 +136,12 @@ export interface EnemyDrawOpts {
   held?: number;
 }
 
-/** Draws an enemy centered at (x, y). */
+/** Draws an enemy centered at (x, y), with the avatar chosen on the avatar picker page. */
 export function drawEnemy(g: G, type: EnemyType, x: number, y: number, w: number, h: number, time: number, o: EnemyDrawOpts): void {
-  const bob = o.state === 'walk' ? Math.sin(time * 9 + x * 0.13) * 2 : 0;
-  const lean = o.state === 'attack' ? Math.sin(time * 14) * 3 : 0;
-  const step = Math.sin(time * 9 + x * 0.13);
+  const walking = o.state === 'walk';
+  const step = walking ? Math.sin(time * 9 + x * 0.13) : 0;
+  // each enemy hits on its own beat
+  const atk = o.state === 'attack' ? attackPulse(time + x * 0.01) : 0;
 
   g.save();
   g.translate(x, y);
@@ -426,273 +150,14 @@ export function drawEnemy(g: G, type: EnemyType, x: number, y: number, w: number
   g.beginPath();
   g.ellipse(0, h / 2 + 2, w * 0.45 * (1 - o.jumpHeight / 160), 6, 0, 0, TAU);
   g.fill();
-  g.translate(lean, bob - o.jumpHeight);
-  g.lineWidth = 2;
-
-  switch (type) {
-    case 'normal': {
-      g.fillStyle = '#334155';
-      g.fillRect(-12 + step * 3, h / 2 - 12, 7, 12);
-      g.fillRect(5 - step * 3, h / 2 - 12, 7, 12);
-      rr(g, -w / 2, -h / 2, w, h - 10, 8);
-      g.fillStyle = '#475569';
-      g.fill();
-      g.strokeStyle = '#cbd5e1';
-      g.stroke();
-      rr(g, -w / 2 + 6, -h / 2 + 7, w - 12, 18, 4);
-      g.fillStyle = '#0f172a';
-      g.fill();
-      g.fillStyle = '#e2e8f0';
-      circle(g, -8, -h / 2 + 16, 3);
-      g.fill();
-      circle(g, 4, -h / 2 + 16, 3);
-      g.fill();
-      label(g, 'GET /', 0, 6, 9, '#e2e8f0');
-      break;
-    }
-    case 'scraper': {
-      g.strokeStyle = '#fdba74';
-      for (let i = 0; i < 3; i++) {
-        const lx = -14 + i * 14;
-        const k = Math.sin(time * 10 + i * 2) * 4;
-        g.beginPath();
-        g.moveTo(lx, h / 2 - 16);
-        g.lineTo(lx - 6 + k, h / 2);
-        g.stroke();
-      }
-      g.beginPath();
-      g.moveTo(0, -h / 2 + 4);
-      g.lineTo(4, -h / 2 - 8);
-      g.stroke();
-      g.fillStyle = Math.sin(time * 8) > 0 ? '#ef4444' : '#7f1d1d';
-      circle(g, 4, -h / 2 - 9, 3.5);
-      g.fill();
-      rr(g, -w / 2, -h / 2 + 2, w, h - 16, 10);
-      g.fillStyle = '#9a3412';
-      g.fill();
-      g.strokeStyle = '#fdba74';
-      g.stroke();
-      rr(g, -w / 2 + 6, -h / 2 + 10, w - 12, 12, 6);
-      g.fillStyle = '#1c1917';
-      g.fill();
-      g.fillStyle = '#fde047';
-      g.fillRect(-14 + Math.sin(time * 3) * 6, -h / 2 + 13, 10, 6);
-      label(g, 'BOT', 0, 8, 11, '#ffedd5');
-      label(g, '</>', 0, 20, 8, '#fdba74');
-      break;
-    }
-    case 'ddos': {
-      const blobs = 9;
-      for (let i = 0; i < blobs; i++) {
-        const a = (i / blobs) * TAU + time * 0.8;
-        const r = w * 0.32 + Math.sin(time * 6 + i) * 3;
-        g.fillStyle = i % 2 ? '#7f1d1d' : '#991b1b';
-        circle(g, Math.cos(a) * r, Math.sin(a) * r * 0.9, 12);
-        g.fill();
-        g.strokeStyle = '#f87171';
-        g.lineWidth = 1.5;
-        g.stroke();
-      }
-      circle(g, 0, 0, w * 0.3);
-      g.fillStyle = '#450a0a';
-      g.fill();
-      g.strokeStyle = '#fca5a5';
-      g.lineWidth = 2;
-      g.stroke();
-      label(g, 'DDoS', 0, -2, 12, '#fee2e2');
-      label(g, '×10⁶', 0, 11, 8, '#fca5a5');
-      break;
-    }
-    case 'zeroDay': {
-      if (o.state === 'jump') g.rotate(-0.35);
-      g.fillStyle = '#4a044e';
-      g.fillRect(-10 + step * 4, h / 2 - 12, 6, 12);
-      g.fillRect(4 - step * 4, h / 2 - 12, 6, 12);
-      g.beginPath();
-      g.moveTo(0, -h / 2);
-      g.lineTo(w / 2, h / 2 - 10);
-      g.lineTo(-w / 2, h / 2 - 10);
-      g.closePath();
-      g.fillStyle = '#86198f';
-      g.fill();
-      g.strokeStyle = '#f0abfc';
-      g.stroke();
-      g.fillStyle = '#0a0a0a';
-      circle(g, -6, -2, 4);
-      g.fill();
-      circle(g, 6, -2, 4);
-      g.fill();
-      g.fillStyle = '#f0abfc';
-      circle(g, -6, -2, 1.5);
-      g.fill();
-      circle(g, 6, -2, 1.5);
-      g.fill();
-      label(g, '0day', 0, 11, 8, '#fae8ff');
-      break;
-    }
-    case 'blackFriday': {
-      g.fillStyle = '#262626';
-      g.strokeStyle = '#facc15';
-      for (const wx of [-36, 36]) {
-        circle(g, wx, h / 2 - 8, 9);
-        g.fill();
-        g.stroke();
-      }
-      rr(g, -w / 2, -h / 2, w, h - 16, 10);
-      g.fillStyle = '#0a0a0a';
-      g.fill();
-      g.lineWidth = 3;
-      g.stroke();
-      for (let i = 0; i < 5; i++) {
-        const on = Math.floor(time * 6 + i) % 2 === 0;
-        g.fillStyle = on ? '#facc15' : '#dc2626';
-        circle(g, -40 + i * 20, -h / 2 + 10, 4);
-        g.fill();
-      }
-      label(g, 'BLACK', 0, -h / 2 + 34, 20, '#facc15');
-      label(g, 'FRIDAY', 0, -h / 2 + 56, 18, '#facc15');
-      rr(g, -32, -h / 2 + 70, 64, 24, 5);
-      g.fillStyle = '#dc2626';
-      g.fill();
-      label(g, '-70%', 0, -h / 2 + 82, 16, '#ffffff');
-      break;
-    }
-    case 'sqli': {
-      g.fillStyle = '#1a2e05';
-      g.fillRect(-12 + step * 3, h / 2 - 12, 7, 12);
-      g.fillRect(5 - step * 3, h / 2 - 12, 7, 12);
-      rr(g, -w / 2, -h / 2, w, h - 10, 6);
-      g.fillStyle = '#1a2e05';
-      g.fill();
-      g.strokeStyle = '#84cc16';
-      g.stroke();
-      rr(g, -w / 2 + 5, -h / 2 + 6, w - 10, 16, 3);
-      g.fillStyle = '#020617';
-      g.fill();
-      label(g, "'OR 1=1", 0, -h / 2 + 14, 7, '#bef264');
-      g.fillStyle = '#bef264';
-      g.fillRect(-9, -2, 5, 5);
-      g.fillRect(4, -2, 5, 5);
-      label(g, 'SQLi', 0, 12, 9, '#d9f99d');
-      break;
-    }
-    case 'botnet': {
-      const nodes: [number, number][] = [
-        [-16, -10],
-        [16, -10],
-        [0, 12],
-      ];
-      g.strokeStyle = '#fbbf24';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.moveTo(nodes[0][0], nodes[0][1]);
-      g.lineTo(nodes[1][0], nodes[1][1]);
-      g.lineTo(nodes[2][0], nodes[2][1]);
-      g.closePath();
-      g.stroke();
-      nodes.forEach(([nx, ny], i) => {
-        const j = Math.sin(time * 7 + i * 2) * 1.5;
-        circle(g, nx, ny + j, 14);
-        g.fillStyle = '#78350f';
-        g.fill();
-        g.strokeStyle = '#fbbf24';
-        g.stroke();
-        g.fillStyle = Math.sin(time * 6 + i) > 0 ? '#ef4444' : '#fde68a';
-        circle(g, nx, ny + j - 2, 3.5);
-        g.fill();
-      });
-      label(g, 'BOTNET', 0, h / 2 - 2, 9, '#fef3c7');
-      break;
-    }
-    case 'botlet': {
-      g.fillStyle = '#78350f';
-      g.fillRect(-8 + step * 2, h / 2 - 7, 4, 7);
-      g.fillRect(4 - step * 2, h / 2 - 7, 4, 7);
-      rr(g, -w / 2, -h / 2, w, h - 6, 5);
-      g.fillStyle = '#92400e';
-      g.fill();
-      g.strokeStyle = '#fbbf24';
-      g.lineWidth = 1.5;
-      g.stroke();
-      g.fillStyle = '#ef4444';
-      circle(g, 0, -h / 2 + 9, 3);
-      g.fill();
-      break;
-    }
-    case 'slowloris': {
-      // open connections trailing behind it
-      g.strokeStyle = 'rgba(56,189,248,0.5)';
-      g.lineWidth = 1.5;
-      for (let i = 0; i < 4; i++) {
-        g.beginPath();
-        const yy = -h / 2 + 12 + i * 12;
-        g.moveTo(w / 2, yy);
-        for (let k = 1; k <= 6; k++) g.lineTo(w / 2 + k * 9, yy + Math.sin(time * 3 + k + i) * 3);
-        g.stroke();
-      }
-      g.fillStyle = '#082f49';
-      g.fillRect(-12 + step, h / 2 - 12, 8, 12);
-      g.fillRect(4 - step, h / 2 - 12, 8, 12);
-      rr(g, -w / 2, -h / 2, w, h - 10, 12);
-      g.fillStyle = '#0c4a6e';
-      g.fill();
-      g.strokeStyle = '#38bdf8';
-      g.lineWidth = 2;
-      g.stroke();
-      // hourglass
-      g.fillStyle = '#bae6fd';
-      g.beginPath();
-      g.moveTo(-9, -h / 2 + 10);
-      g.lineTo(9, -h / 2 + 10);
-      g.lineTo(0, -h / 2 + 22);
-      g.lineTo(9, -h / 2 + 34);
-      g.lineTo(-9, -h / 2 + 34);
-      g.lineTo(0, -h / 2 + 22);
-      g.closePath();
-      g.fill();
-      label(g, 'keep-alive', 0, h / 2 - 20, 7, '#e0f2fe');
-      break;
-    }
-    case 'ransomware': {
-      g.fillStyle = '#1c0505';
-      g.fillRect(-12 + step * 3, h / 2 - 12, 7, 12);
-      g.fillRect(5 - step * 3, h / 2 - 12, 7, 12);
-      rr(g, -w / 2, -h / 2, w, h - 10, 8);
-      g.fillStyle = '#450a0a';
-      g.fill();
-      g.strokeStyle = '#ef4444';
-      g.stroke();
-      padlock(g, 0, -6, 0.9);
-      label(g, 'RANSOM', 0, 14, 8, '#fecaca');
-      break;
-    }
-    case 'memoryLeak': {
-      const wob = (k: number) => Math.sin(time * 4 + k) * 2;
-      g.beginPath();
-      for (let i = 0; i <= 16; i++) {
-        const a = (i / 16) * TAU;
-        const rx = (w / 2) * (1 + 0.06 * Math.sin(time * 5 + i * 1.3));
-        const ry = (h / 2) * (1 + 0.06 * Math.cos(time * 4 + i));
-        if (i === 0) g.moveTo(Math.cos(a) * rx, Math.sin(a) * ry);
-        else g.lineTo(Math.cos(a) * rx, Math.sin(a) * ry);
-      }
-      g.closePath();
-      g.fillStyle = '#3b0764';
-      g.fill();
-      g.strokeStyle = '#c084fc';
-      g.lineWidth = 2;
-      g.stroke();
-      // drips
-      g.fillStyle = '#a855f7';
-      circle(g, -w / 4, h / 2 + 4 + wob(1), 3);
-      g.fill();
-      circle(g, w / 5, h / 2 + 6 + wob(2), 2.5);
-      g.fill();
-      const s = Math.max(8, Math.min(14, w / 5));
-      label(g, 'heap↑', 0, 0, s, '#f3e8ff');
-      break;
-    }
-  }
+  g.translate(0, step * 2 - o.jumpHeight);
+  // lean forward around the feet when hitting; tilt up while jumping
+  g.translate(0, h / 2);
+  g.rotate(o.state === 'jump' ? -0.25 : -0.08 * atk);
+  g.translate(0, -h / 2);
+  g.save();
+  ENEMY_ART[type](g, { w, h, t: time, step, atk });
+  g.restore();
 
   if (o.held !== undefined) {
     g.strokeStyle = '#fb923c';

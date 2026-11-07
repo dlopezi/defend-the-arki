@@ -259,9 +259,14 @@ export class RenderSystem {
       const gen = world.get(e, 'generator');
       const fuse = world.get(e, 'fuse');
       const trap = world.get(e, 'trap');
+      const shooter = world.get(e, 'shooter');
       const lane = world.req(e, 'gridCell').lane;
+      // recoil right after a shot; walls shake while they are being hit
+      const sinceShot = shooter ? shooter.interval - shooter.timer : Infinity;
+      const kick = sinceShot < 0.15 ? 1 - sinceShot / 0.15 : h.flash > 0 ? 1 : 0;
       drawDefense(g, d.type, t.x, t.y, time, {
         flash: h.flash,
+        kick,
         charge: gen ? 1 - gen.timer / gen.interval : undefined,
         fuse: fuse ? fuse.timer / fuse.total : undefined,
         hpRatio: h.hp / h.max,
@@ -307,7 +312,9 @@ export class RenderSystem {
         held: held ? held.timer / held.total : undefined,
       });
       if (h.hp < h.max && en.type !== 'memoryLeak') {
-        this.hpBar(t.x, t.y + yOffset - en.height / 2 - 10 - jumpHeight, Math.max(30, en.width), h.hp / h.max, '#f87171');
+        // Black Friday's "-70%" sign sticks out above its box: the bar goes over it.
+        const above = en.type === 'blackFriday' ? 22 : 10;
+        this.hpBar(t.x, t.y + yOffset - en.height / 2 - above - jumpHeight, Math.max(30, en.width), h.hp / h.max, '#f87171');
       } else if (en.type === 'memoryLeak') {
         // Leak shows its total size instead: the bar keeps growing.
         this.hpBar(t.x, t.y - en.height / 2 - 12, Math.max(30, en.width), h.hp / h.max, '#c084fc');
