@@ -15,8 +15,8 @@ export default defineConfig({
     sourcemap: false,
     assetsInlineLimit: 4096,
   },
-  // `vite preview` sends the same security headers as production (nginx/security-headers.conf),
-  // so the CSP can be tested locally on the built game.
+  // `vite preview` sends the same security headers as production (firebase.json and
+  // nginx/security-headers.conf), so the CSP can be tested locally on the built game.
   preview: {
     headers: {
       'X-Content-Type-Options': 'nosniff',

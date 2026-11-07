@@ -68,6 +68,42 @@ Un jugador descarga unos 47 kB una sola vez; después el juego funciona sin serv
 
 ## Despliegue
 
+### Producción: Firebase Hosting (Google Cloud)
+
+- **Dirección:** https://defend.thearki.com (copia gratis de Firebase: https://defend-the-arki.web.app).
+- **Proyecto GCP:** `defend-the-arki`, **sin cuenta de facturación** (plan Spark): no puede generar cobros.
+- **Coste:** 0. El plan gratis da 10 GB de almacenamiento y 360 MB/día de tráfico
+  (unos 7.600 jugadores nuevos al día con 47 kB cada uno). Si se pasa, el sitio puede dejar de
+  responder hasta que se renueve la cuota: entonces hay que pasar a Blaze (pago por uso,
+  0,15 USD/GB) con una alerta de presupuesto.
+- **Rendimiento:** CDN global de Google, compresión automática, HTTP/3, HTTPS gratis.
+- **Configuración:** `firebase.json` (cabeceras y caché, iguales que `nginx/`) y `.firebaserc`.
+
+**Cómo se publica:** cada push a `main` ejecuta el CI (`.github/workflows/system-defense.yml`):
+`check` (tipos, pruebas, build, carga) → `docker` → `deploy`. El job `deploy` publica **los mismos
+archivos que pasaron las pruebas** y después comprueba la URL. GitHub entra en Google Cloud con
+Workload Identity Federation: no hay ninguna clave guardada.
+
+**Volver atrás:** consola de Firebase → Hosting → historial de versiones → *Rollback*.
+También sirve `git revert` + push.
+
+**Configuración inicial (una sola vez):**
+
+1. `gcloud projects create defend-the-arki --name="Defend the Arki"` (sin facturación).
+2. Consola de Firebase → *Add project* → elegir `defend-the-arki` (sin Google Analytics).
+3. `scripts/setup-gcp.sh`: activa las APIs, crea el acceso de GitHub (solo la rama `main` de
+   este repo puede publicar) y guarda las variables del repo `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`
+   y `GCP_DEPLOY_SA`.
+4. Dominio (`thearki.com`, comprado en Cloudflare): Firebase → Hosting → *Add custom domain* →
+   `defend.thearki.com`. Copiar los registros que muestra Firebase en el DNS de Cloudflare como
+   **"DNS only" (nube gris)**. Después: `gh variable set PRODUCTION_URL --body https://defend.thearki.com`
+   para que el CI también compruebe el dominio.
+
+**Probar `firebase.json` en local:** `npm run build` y después
+`npx firebase-tools emulators:start --only hosting --project demo-test`.
+En macOS el puerto 5000 lo usa AirPlay: cambia el puerto con `emulators.hosting.port` en una
+copia de `firebase.json`.
+
 ### Opción A: Docker (nginx)
 
 ```bash
