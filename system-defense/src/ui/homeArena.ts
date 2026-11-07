@@ -182,9 +182,11 @@ export function drawArena(g: G, W: number, H: number, t: number, intro: number):
   floor(g, W, H, horizon, t);
   header(g, W, t);
 
-  // Wide screens: 3 rows on the sides of the menu. Phones: 1 small row below it.
-  const narrow = W < 760;
-  const k = narrow ? 1 : Math.min(1.3, W / 1068);
+  // Wide screens: 3 rows on the sides of the menu. Phones upright: 1 small row below it.
+  // Phones in landscape (short and wide): 3 smaller rows on the sides.
+  const short = H < 500 && W > H * 1.4;
+  const narrow = W < 760 && !short;
+  const k = narrow ? 1 : Math.min(1.3, W / 1068, short ? H / 600 : 9);
   const enter = ease(intro, 0.15, 1.5);
   const fight = intro > 1.5;
   // x of: back defense, front defense, front threat, back threat

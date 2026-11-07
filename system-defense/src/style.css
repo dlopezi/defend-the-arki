@@ -154,6 +154,10 @@ body {
     border-color: var(--bad);
   }
 }
+.card-icon {
+  width: 44px;
+  height: 44px;
+}
 .card-key {
   position: absolute;
   top: 3px;
@@ -1232,5 +1236,344 @@ kbd {
   .screen-main .logo span {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* ---------- Touch screens ---------- */
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.touch-only {
+  display: none;
+}
+@media (hover: none) and (pointer: coarse) {
+  .touch-only {
+    display: inline;
+  }
+  /* keyboard hints are useless without a keyboard */
+  .no-touch,
+  .card-key,
+  .title-foot .hint,
+  .keys {
+    display: none !important;
+  }
+}
+
+/* Small screens: pause and end screens cover the whole screen, not only the board. */
+@media (max-width: 860px), (max-height: 600px) {
+  .overlays > .overlay {
+    position: fixed;
+    z-index: 40;
+  }
+}
+
+/* ---------- "Turn your phone": the game is played in landscape ---------- */
+.rotate {
+  display: none;
+}
+/* Same query as PORTRAIT_PHONE in src/game/Game.ts (the game pauses while it shows). */
+@media (orientation: portrait) and (max-width: 600px) and (hover: none) and (pointer: coarse) {
+  .shell.view-game .rotate {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+    background: radial-gradient(500px 400px at 50% 40%, #0c1a3a, #02040a);
+  }
+}
+.rotate-phone {
+  position: relative;
+  width: 48px;
+  height: 84px;
+  margin-bottom: 10px;
+  border: 3px solid #38bdf8;
+  border-radius: 11px;
+  box-shadow: 0 0 24px -4px rgba(56, 189, 248, 0.7);
+  animation: turn 2.6s ease-in-out infinite;
+}
+.rotate-phone::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 14px;
+  height: 3px;
+  margin-left: -7px;
+  background: #38bdf8;
+  border-radius: 2px;
+}
+.rotate strong {
+  font: 900 24px var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.rotate p {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #cbd5e1;
+}
+@keyframes turn {
+  0%,
+  20% {
+    transform: rotate(0deg);
+  }
+  50%,
+  80% {
+    transform: rotate(-90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rotate-phone {
+    animation: none;
+    transform: rotate(-90deg);
+  }
+}
+
+/* ---------- Phone in landscape: the board gets all the height ----------
+   ┌──────┬──────────────────────────┬──────────────┐
+   │ ⬢ CU │ wave · progress · next   │ ⏸ ×2 🔊 Menú │
+   ├──────┼──────────────────────────┴──────────────┤
+   │cards │            board (as big as it fits)    │
+   │2 col │                                         │
+   └──────┴─────────────────────────────────────────┘ */
+@media (orientation: landscape) and (max-height: 500px) {
+  #app {
+    padding: 6px;
+  }
+  body:has(.shell.view-game) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .shell.view-game {
+    max-width: none;
+    height: calc(100dvh - 12px);
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr) auto;
+    grid-template-rows: 40px minmax(0, 1fr);
+    grid-template-areas:
+      'cu strip actions'
+      'cards board board';
+    gap: 6px;
+  }
+  .shell.view-game .hud-wrap,
+  .shell.view-game .hud {
+    display: contents;
+  }
+  .view-game .cu-box {
+    grid-area: cu;
+    min-width: 0;
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .view-game .cu-icon {
+    font-size: 20px;
+  }
+  .view-game .cu-value {
+    font-size: 21px;
+  }
+  .view-game .cu-label,
+  .view-game .mode,
+  .view-game .preview-label {
+    display: none;
+  }
+  .view-game .strip {
+    grid-area: strip;
+    flex-wrap: nowrap;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
+    padding: 0 12px;
+  }
+  .view-game .actions {
+    grid-area: actions;
+    display: flex;
+    gap: 4px;
+  }
+  .view-game .btn-small {
+    min-width: 40px;
+    padding: 0 10px;
+  }
+  .view-game .cards {
+    grid-area: cards;
+    order: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 4px;
+    padding: 4px;
+    overflow: hidden auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  /* card: icon and cost side by side, name below */
+  .view-game .card {
+    width: auto;
+    height: auto;
+    min-height: 44px;
+    padding: 2px 3px 3px;
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas:
+      'icon cost'
+      'name name';
+    place-content: center;
+    align-items: center;
+    gap: 0 3px;
+    border-radius: 8px;
+  }
+  .view-game .card-key {
+    display: none;
+  }
+  .view-game .card-icon,
+  .view-game .shovel-icon {
+    grid-area: icon;
+    width: 28px;
+    height: 28px;
+  }
+  .view-game .shovel-icon {
+    font-size: 18px;
+  }
+  .view-game .card-cost {
+    grid-area: cost;
+    font-size: 11px;
+  }
+  .view-game .card-name {
+    grid-area: name;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    font-size: 9px;
+  }
+  .view-game .board {
+    grid-area: board;
+    min-height: 0;
+    container-type: size;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: none;
+  }
+  .view-game .board > * {
+    grid-area: 1 / 1;
+  }
+  /* as big as the space allows, keeping the board shape (1130 × 500) */
+  .view-game .board canvas {
+    width: min(100cqw, 100cqh * 2.26);
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  /* panels: less padding so they fit the short screen */
+  .overlay {
+    padding: 8px;
+  }
+  .panel {
+    padding: 14px 18px;
+  }
+  .panel h2 {
+    font-size: 24px;
+  }
+  .stats {
+    margin: 8px 0;
+  }
+  .concept-card {
+    width: min(720px, 100%);
+  }
+  /* the main buttons stay visible while the panel scrolls */
+  .concept-foot,
+  .overlay .panel .row {
+    position: sticky;
+    bottom: -8px; /* the overlay padding: stick to the very bottom of the screen */
+    z-index: 1;
+    margin: 10px -18px -14px;
+    padding: 8px 18px 16px;
+    background: var(--panel);
+    box-shadow: 0 -14px 14px -6px var(--panel);
+    border-radius: 0 0 14px 14px;
+  }
+
+  /* menu screens: use the width, since the height is short */
+  .levels {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .level {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .codex {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .screen-head {
+    margin-bottom: 10px;
+  }
+  .screen-head h2 {
+    font-size: 20px;
+  }
+
+  /* title screen: smaller logo, menu in two rows */
+  .screen-main .title-screen {
+    gap: 2px;
+    padding-top: 46px;
+  }
+  .screen-main .eyebrow {
+    display: none;
+  }
+  .screen-main .logo {
+    font-size: clamp(34px, 6.6vw, 60px);
+  }
+  .screen-main .tagline {
+    margin: 4px 0 12px;
+    font-size: 13px;
+  }
+  .screen-main .main-menu {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: min(440px, 100%);
+    gap: 8px;
+  }
+  .screen-main .menu-btn {
+    flex: 1 1 0;
+    padding: 9px 6px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+  .screen-main .menu-btn.primary {
+    flex-basis: 100%;
+    padding: 11px 18px;
+    font-size: 16px;
+  }
+  .screen-main .menu-btn:not(.primary)::before {
+    display: none;
+  }
+  .screen-main .menu-btn:not(.primary):hover,
+  .screen-main .menu-btn:not(.primary):focus {
+    transform: translateY(-2px);
+  }
+  .press-start {
+    margin-top: 8px;
+  }
+  .title-foot {
+    padding: 6px 14px;
   }
 }

@@ -145,8 +145,10 @@ export class HomeMenu {
     const scenes = [...this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-scene]')];
     if (!arena && icons.length === 0 && scenes.length === 0) return;
     let still = false;
+    let noHover = false;
     try {
       still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      noHover = window.matchMedia('(hover: none)').matches;
     } catch {
       still = false;
     }
@@ -159,7 +161,8 @@ export class HomeMenu {
       }
       icons.forEach((c, i) => {
         const id = c.dataset.icon as ConceptId;
-        drawConceptIcon(c, id, 80, t + i * 0.37, this.active.has(id));
+        // Touch screens have no hover, so every character moves.
+        drawConceptIcon(c, id, 80, t + i * 0.37, noHover || this.active.has(id));
       });
       scenes.forEach((c) => {
         const step = HOWTO_STEPS[Number(c.dataset.scene)];
@@ -193,7 +196,7 @@ export class HomeMenu {
       .join('');
     const actions = this.started
       ? `<nav class="main-menu" aria-label="Menú principal">${menu}</nav>`
-      : `<button class="press-start" data-go="press" type="button">Pulsa para empezar<small>clic o cualquier tecla</small></button>`;
+      : `<button class="press-start" data-go="press" type="button">Pulsa para empezar<small><span class="no-touch">clic o cualquier tecla</span><span class="touch-only">toca la pantalla</span></small></button>`;
     const muted = this.cb.getMuted();
     return `
       <canvas class="arena" aria-hidden="true"></canvas>
@@ -277,10 +280,10 @@ export class HomeMenu {
   }
 
   private guideScreen(): string {
-    const items: { id: ConceptId; name: string; sub: string; color: string }[] =
+    const items: { id: ConceptId; name: string; sub: string; color: string; hotkey?: string }[] =
       this.guideTab === 'defenses'
         ? [
-            ...DEFENSE_ORDER.map((d) => ({ id: d as ConceptId, name: DEFENSES[d].name, sub: `${DEFENSES[d].cost} CU · tecla ${DEFENSES[d].hotkey}`, color: DEFENSES[d].color })),
+            ...DEFENSE_ORDER.map((d) => ({ id: d as ConceptId, name: DEFENSES[d].name, sub: `${DEFENSES[d].cost} CU`, hotkey: DEFENSES[d].hotkey, color: DEFENSES[d].color })),
             { id: 'rollback', name: 'Rollback', sub: 'Gratis · niveles 2 y 3', color: '#22d3ee' },
           ]
         : ENEMY_ORDER.map((e) => ({ id: e as ConceptId, name: ENEMIES[e].name, sub: ENEMIES[e].desc, color: ENEMIES[e].color }));
@@ -289,11 +292,11 @@ export class HomeMenu {
         (it) => `<button class="codex-item" data-concept="${it.id}" type="button" style="--accent:${it.color}" title="${esc(CONCEPTS[it.id].real)}">
           <canvas class="codex-icon" data-icon="${it.id}"></canvas>
           <strong>${esc(it.name)}</strong>
-          <span>${esc(it.sub)}</span>
+          <span>${esc(it.sub)}${it.hotkey ? `<span class="no-touch"> · tecla ${esc(it.hotkey)}</span>` : ''}</span>
         </button>`,
       )
       .join('');
-    return `<div class="codex">${grid}</div><p class="note">Pasa el ratón por encima para verlos en acción. Pulsa un elemento para ver su ficha: qué es en la vida real y en qué se parece al juego.</p>`;
+    return `<div class="codex">${grid}</div><p class="note"><span class="no-touch">Pasa el ratón por encima para verlos en acción. </span>Pulsa un elemento para ver su ficha: qué es en la vida real y en qué se parece al juego.</p>`;
   }
 
   private howtoScreen(): string {

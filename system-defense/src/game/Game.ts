@@ -12,6 +12,8 @@ import { loadEnabled, loadSeen, saveEnabled, saveSeen } from '../learn/prefs';
 
 /** Max fixed steps per frame, so a slow frame cannot freeze the page. */
 const MAX_STEPS = 12;
+/** A phone held upright: the game asks to turn it. Same query as `.rotate` in style.css. */
+const PORTRAIT_PHONE = '(orientation: portrait) and (max-width: 600px) and (hover: none) and (pointer: coarse)';
 
 /** Owns the ECS world, the fixed-step game loop (60 Hz), sound and the input bridge. */
 export class Game {
@@ -27,6 +29,8 @@ export class Game {
   private readonly shell: HTMLElement;
   /** True when the player left a running game with the "Menú" button. */
   private suspended = false;
+  private readonly portrait: MediaQueryList | null =
+    typeof window.matchMedia === 'function' ? window.matchMedia(PORTRAIT_PHONE) : null;
 
   private last = 0;
   private acc = 0;
@@ -70,7 +74,7 @@ export class Game {
     this.canvas = document.createElement('canvas');
     this.canvas.style.aspectRatio = `${CANVAS_W} / ${CANVAS_H}`;
     board.append(this.canvas, this.overlays.root);
-    shell.append(this.overlays.home, this.hud.root, board, this.overlays.concept);
+    shell.append(this.overlays.home, this.hud.root, board, this.overlays.concept, this.rotateHint());
     root.append(shell);
     this.setView('home');
 
@@ -108,6 +112,18 @@ export class Game {
     this.suspended = false;
     this.overlays.show('none');
     this.setView('game');
+  }
+
+  /** Covers the game on a phone held upright (shown by CSS, see PORTRAIT_PHONE). */
+  private rotateHint(): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'rotate';
+    el.innerHTML = `<div class="rotate-phone" aria-hidden="true"></div>
+      <strong>Gira el móvil</strong>
+      <p>System Defense se juega en horizontal.</p>
+      <button class="btn" type="button">Volver al menú</button>`;
+    el.querySelector('button')?.addEventListener('click', () => this.toMenu());
+    return el;
   }
 
   /** Home view shows the menu; game view shows HUD + board. */
@@ -226,6 +242,9 @@ export class Game {
   private tick(now: number): void {
     const real = Math.min(0.25, (now - this.last) / 1000);
     this.last = now;
+
+    // A phone turned upright hides the board: pause, so nothing happens unseen.
+    if (this.ctx.status === 'playing' && this.portrait?.matches) this.togglePause();
 
     // Fixed timestep: logic always advances in 1/60 s steps, independent of display rate.
     // ×2 speed runs two logic steps per 1/60 s of real time.

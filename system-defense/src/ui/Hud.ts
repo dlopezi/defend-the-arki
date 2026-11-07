@@ -201,10 +201,9 @@ export class Hud {
   private paintIcon(canvas: HTMLCanvasElement, type: DefenseType): void {
     const size = 44;
     const dpr = window.devicePixelRatio || 1;
+    // The CSS size is set in style.css (smaller on phones in landscape).
     canvas.width = size * dpr;
     canvas.height = size * dpr;
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
     const g = canvas.getContext('2d');
     if (!g) return;
     g.scale(dpr, dpr);

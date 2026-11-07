@@ -8,6 +8,15 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 - Motor: TypeScript sin frameworks, patrón ECS, bucle fijo a 60 Hz, Canvas 2D.
 - Tamaño de producción: unos **47 kB comprimidos** (index.html + 1 JS + 1 CSS + icono).
 
+## Móvil
+
+- El juego se juega **en horizontal**. En horizontal, el tablero ocupa todo el alto de la pantalla:
+  las defensas van en una columna a la izquierda y la barra de la ola arriba.
+- En un móvil en vertical, la partida se pausa y aparece "Gira el móvil".
+- "Añadir a pantalla de inicio" (iPhone y Android) abre el juego sin las barras del navegador
+  (`public/manifest.webmanifest` y los iconos de `public/icons/`).
+- Para ver los FPS en producción, abre la URL con `?debug`.
+
 ## Requisitos
 
 - Node.js 22 y npm.
@@ -81,6 +90,7 @@ docker run -d -p 8080:8080 --name system-defense system-defense:1.0.0
 |---|---|
 | `/assets/*` | `public, max-age=31536000, immutable` (los nombres cambian en cada versión) |
 | `/` e `index.html` | `no-cache` |
+| `/manifest.webmanifest` | `no-cache` y `Content-Type: application/manifest+json` |
 
 Cabeceras de seguridad para todas las respuestas:
 
@@ -101,6 +111,7 @@ Activa la compresión (gzip o brotli) en el hosting. Casi todos lo hacen solos.
 3. Abrir la URL de producción y comprobar:
    - pantalla de título → "Pulsa para empezar" → menú;
    - Jugar → Nivel 1 → colocar una defensa;
+   - en un móvil: en horizontal se ve todo el tablero; en vertical sale "Gira el móvil";
    - consola del navegador sin errores;
    - cabeceras: `curl -sI https://TU-DOMINIO/ | grep -i content-security`.
 4. (Opcional) `npm run loadtest -- --url https://TU-DOMINIO --connections 100 --duration 15`

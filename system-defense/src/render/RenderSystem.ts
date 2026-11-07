@@ -25,6 +25,7 @@ import { drawCU, drawDefense, drawEnemy, drawProjectile, drawRollback } from './
 
 type G = CanvasRenderingContext2D;
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const SHOW_DEBUG = import.meta.env.DEV || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug'));
 /** Width of the base drawing (the rest of BASE_W is the Rollback column). */
 const BASE_DRAW_W = BASE_W - 52;
 
@@ -59,7 +60,8 @@ export class RenderSystem {
     this.drawUpgradePanel(world, ctx);
     g.restore();
     this.drawBanners(ctx);
-    this.drawDebug(world, fps);
+    // FPS and entity count: only for developers (dev server or ?debug in the URL).
+    if (SHOW_DEBUG) this.drawDebug(world, fps);
   }
 
   private drawBoard(ctx: GameContext, time: number): void {

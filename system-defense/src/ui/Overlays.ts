@@ -135,7 +135,7 @@ export class Overlays {
         <p class="read">Para leer más: ${link(c.read)}</p>
         <div class="concept-foot">
           ${opts.inGame ? '<label class="check"><input type="checkbox" data-act="disable"> No mostrar más fichas</label>' : '<span></span>'}
-          <button class="btn primary" data-act="ok" type="button">Entendido (Enter)</button>
+          <button class="btn primary" data-act="ok" type="button">Entendido<span class="no-touch"> (Enter)</span></button>
         </div>
       </div>`;
     const canvas = this.concept.querySelector<HTMLCanvasElement>('.concept-icon');
@@ -161,7 +161,9 @@ export class Overlays {
     this.end.classList.remove('visible');
     this.concept.classList.add('visible');
     this.conceptClose = close;
-    this.concept.querySelector<HTMLButtonElement>('[data-act="ok"]')?.focus();
+    // Focus the button for the keyboard, but keep the card scrolled to its title (short screens).
+    this.concept.querySelector<HTMLButtonElement>('[data-act="ok"]')?.focus({ preventScroll: true });
+    this.concept.scrollTop = 0;
   }
 
   /** Closes the open concept card (Enter / Escape). */
