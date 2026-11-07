@@ -21,7 +21,10 @@ export class Sfx {
     this.muted = muted;
   }
 
-  /** Browsers only allow audio after a user gesture. Call this from input handlers. */
+  /**
+   * Browsers only allow audio after a user gesture. Call this from input handlers.
+   * On a phone, only the END of a touch counts (pointerup, touchend, click), not pointerdown.
+   */
   unlock(): void {
     try {
       if (!this.ac) {
@@ -29,8 +32,16 @@ export class Sfx {
         this.master = this.ac.createGain();
         this.master.gain.value = 0.22;
         this.master.connect(this.ac.destination);
-      } else if (this.ac.state === 'suspended') {
-        void this.ac.resume();
+      }
+      // 'suspended' before the first gesture; on iPhone also 'interrupted' after a call,
+      // the lock screen or an app switch. Any state but 'running' needs a resume.
+      if ((this.ac.state as string) !== 'running' && this.ac.state !== 'closed') {
+        this.ac.resume().catch(() => undefined);
+        // Older iPhones only unlock when a sound starts inside the gesture: a silent one.
+        const src = this.ac.createBufferSource();
+        src.buffer = this.ac.createBuffer(1, 1, 22050);
+        src.connect(this.ac.destination);
+        src.start();
       }
     } catch {
       this.ac = null;

@@ -322,7 +322,12 @@ export class Game {
       if (e.pointerType === 'mouse') this.ctx.input.hover = null;
     });
 
-    window.addEventListener('pointerdown', () => this.sfx.unlock());
+    // Unlock audio on any gesture. A mouse unlocks on pointerdown; a finger only on
+    // pointerup / touchend (browser rule), so all three are needed.
+    const unlock = () => this.sfx.unlock();
+    for (const type of ['pointerdown', 'pointerup', 'touchend'] as const) {
+      window.addEventListener(type, unlock, { capture: true, passive: true });
+    }
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
       this.sfx.unlock();
