@@ -10,11 +10,23 @@
   --bad: #f87171;
   --blue: #38bdf8;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* "+" cursor: white everywhere, cyan over things you can click (and the board). */
+  --cur: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z' fill='%23e2e8f0' stroke='%23020617' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair;
+  --cur-hot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z' fill='%2338bdf8' stroke='%23020617' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='1.6' fill='%23020617'/%3E%3C/svg%3E") 12 12, pointer;
   color-scheme: dark;
+  cursor: var(--cur);
 }
 
 * {
   box-sizing: border-box;
+}
+
+button,
+[role='button'] {
+  cursor: var(--cur-hot);
+}
+button:disabled {
+  cursor: var(--cur);
 }
 
 html,
@@ -105,7 +117,7 @@ body {
   border: 2px solid var(--line);
   border-radius: 10px;
   color: var(--text);
-  cursor: pointer;
+  cursor: var(--cur-hot);
   overflow: hidden;
   transition: transform 0.08s, border-color 0.15s, box-shadow 0.15s;
 }
@@ -282,7 +294,7 @@ body {
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 8px;
-  cursor: pointer;
+  cursor: var(--cur-hot);
 }
 .btn-small:hover {
   border-color: var(--blue);
@@ -304,7 +316,7 @@ body {
   display: block;
   width: 100%;
   height: auto;
-  cursor: crosshair;
+  cursor: var(--cur-hot);
   touch-action: none;
 }
 
@@ -372,7 +384,7 @@ body {
   background: var(--panel-2);
   border: 2px solid var(--line);
   border-radius: 12px;
-  cursor: pointer;
+  cursor: var(--cur-hot);
   font-size: 13px;
   line-height: 1.4;
   transition: border-color 0.15s, transform 0.1s;
@@ -453,7 +465,7 @@ kbd {
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 10px;
-  cursor: pointer;
+  cursor: var(--cur-hot);
 }
 .btn.primary {
   background: #0369a1;
@@ -576,7 +588,7 @@ kbd {
   gap: 6px;
   font-size: 13px;
   color: var(--muted);
-  cursor: pointer;
+  cursor: var(--cur-hot);
 }
 /* ---------- Learning: post-mortem / retrospective ---------- */
 .report {
@@ -660,9 +672,24 @@ kbd {
 
 /* ---------- Home: game-style menu ---------- */
 .home-panel {
+  position: relative;
   min-height: 560px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+/* Main screen: defenses vs threats, animated behind the title and the menu. */
+.arena {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.home-panel > :not(.arena) {
+  position: relative;
+  z-index: 1;
 }
 .title-screen {
   flex: 1;
@@ -700,7 +727,7 @@ kbd {
   background: var(--panel-2);
   border: 2px solid var(--line);
   border-radius: 12px;
-  cursor: pointer;
+  cursor: var(--cur-hot);
   transition: transform 0.08s, border-color 0.15s, background 0.15s;
 }
 .menu-btn small {
@@ -740,7 +767,7 @@ kbd {
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 8px;
-  cursor: pointer;
+  cursor: var(--cur-hot);
 }
 .back:hover,
 .back:focus-visible {
@@ -780,7 +807,7 @@ kbd {
   background: none;
   border: none;
   border-radius: 7px;
-  cursor: pointer;
+  cursor: var(--cur-hot);
 }
 .tab.active,
 .seg button.active {
@@ -803,7 +830,7 @@ kbd {
   background: var(--panel-2);
   border: 2px solid var(--line);
   border-radius: 12px;
-  cursor: pointer;
+  cursor: var(--cur-hot);
   transition: transform 0.08s, border-color 0.15s;
 }
 .codex-item:hover,
@@ -825,24 +852,82 @@ kbd {
   line-height: 1.3;
   color: var(--muted);
 }
-.howto {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 12px 20px;
-  margin: 0;
+/* How to play: animated step cards */
+.howto-goal {
+  margin: 0 0 14px;
+  padding: 10px 14px;
   font-size: 14px;
-  line-height: 1.5;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: 10px;
 }
-.howto dt {
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.step-n {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  font: 800 12px var(--mono);
+  background: #0369a1;
+  border-radius: 50%;
+}
+.step strong {
+  padding-right: 28px;
+  font: 800 14px var(--mono);
+}
+.step canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 320 / 150;
+  background: #070b17;
+  border-radius: 8px;
+}
+.step p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #cbd5e1;
+}
+.cu-inline {
+  color: var(--cu);
+  font-weight: 700;
+}
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.keys b {
   font: 700 12px var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--blue);
-  padding-top: 2px;
-}
-.howto dd {
-  margin: 0;
-  color: #e2e8f0;
 }
 .options {
   display: flex;
@@ -874,6 +959,11 @@ kbd {
   border-color: #f87171;
 }
 
+@media (max-width: 980px) {
+  .steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 @media (max-width: 760px) {
   .codex {
     grid-template-columns: repeat(2, 1fr);
@@ -881,7 +971,7 @@ kbd {
   .logo {
     font-size: 40px;
   }
-  .howto {
+  .steps {
     grid-template-columns: 1fr;
   }
   .opt {

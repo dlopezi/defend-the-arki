@@ -1,7 +1,10 @@
 import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, type Mode } from '../config';
 import { clearRecords, describeRecord, loadRecords } from '../game/records';
 import { CONCEPTS, type ConceptId } from '../learn/concepts';
-import { paintConceptIcon } from './icons';
+import { fitCanvas, loop } from './anim';
+import { drawArena } from './homeArena';
+import { HOWTO_STEPS, SCENE_H, SCENE_W } from './howtoScenes';
+import { drawConceptIcon } from './icons';
 
 export type HomeScreen = 'main' | 'levels' | 'guide' | 'howto' | 'options';
 
@@ -39,6 +42,10 @@ export class HomeMenu {
   private guideTab: 'defenses' | 'threats' = 'defenses';
   private confirmClear = false;
   private notice = '';
+  /** Bumped on every render: the animation loop of an older render stops. */
+  private generation = 0;
+  /** Guide items under the mouse (they act: attack, fire…). */
+  private readonly active = new Set<string>();
 
   constructor(cb: HomeCallbacks) {
     this.cb = cb;
@@ -67,6 +74,48 @@ export class HomeMenu {
     const body = this.screen === 'main' ? this.mainScreen() : this.subScreen(this.screen);
     this.el.innerHTML = `<div class="panel home-panel screen-${this.screen}">${body}</div>`;
     this.bind();
+    this.animate();
+  }
+
+  /**
+   * Animates the canvases of the current screen (home arena, guide icons, how-to scenes)
+   * while the menu is visible. With "reduce motion" on, it draws one still frame.
+   */
+  private animate(): void {
+    const gen = ++this.generation;
+    this.active.clear();
+    const arena = this.el.querySelector<HTMLCanvasElement>('canvas.arena');
+    const icons = [...this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-icon]')];
+    const scenes = [...this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-scene]')];
+    if (!arena && icons.length === 0 && scenes.length === 0) return;
+    const frame = (t: number): void => {
+      if (arena) {
+        const w = arena.clientWidth;
+        const h = arena.clientHeight;
+        const g = w > 0 && h > 0 ? fitCanvas(arena, w, h) : null;
+        if (g) drawArena(g, w, h, t);
+      }
+      icons.forEach((c, i) => {
+        const id = c.dataset.icon as ConceptId;
+        drawConceptIcon(c, id, 80, t + i * 0.37, this.active.has(id));
+      });
+      scenes.forEach((c) => {
+        const step = HOWTO_STEPS[Number(c.dataset.scene)];
+        const g = fitCanvas(c, SCENE_W, SCENE_H);
+        if (step && g) step.draw(g, t);
+      });
+    };
+    let still = false;
+    try {
+      still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      still = false;
+    }
+    if (still) {
+      requestAnimationFrame(() => frame(1.2));
+      return;
+    }
+    loop(() => gen === this.generation && this.el.isConnected && this.el.offsetParent !== null, frame);
   }
 
   /* ---------- Screens ---------- */
@@ -77,6 +126,7 @@ export class HomeMenu {
       ? `<button class="menu-btn primary" data-go="continue" type="button">▶ Continuar <small>Nivel ${MODES[s.mode].level} · ${s.wave > 0 ? `Ola ${s.wave}` : 'Preparación'}</small></button>`
       : '';
     return `
+      <canvas class="arena" aria-hidden="true"></canvas>
       <div class="title-screen">
         <p class="eyebrow">Tower defense de arquitectura de sistemas</p>
         <h1 class="logo">System<span>Defense</span></h1>
@@ -155,20 +205,31 @@ export class HomeMenu {
         </button>`,
       )
       .join('');
-    return `<div class="codex">${grid}</div><p class="note">Pulsa un elemento para ver su ficha: qué es en la vida real y en qué se parece al juego.</p>`;
+    return `<div class="codex">${grid}</div><p class="note">Pasa el ratón por encima para verlos en acción. Pulsa un elemento para ver su ficha: qué es en la vida real y en qué se parece al juego.</p>`;
   }
 
   private howtoScreen(): string {
-    const row = (k: string, v: string) => `<dt>${k}</dt><dd>${v}</dd>`;
-    return `<dl class="howto">
-      ${row('Objetivo', 'Protege la base (izquierda) del tráfico que llega desde Internet (derecha). Sobrevive a 10 olas.')}
-      ${row('Recursos', 'Haz clic en los hexágonos <span class="cu-inline">⬢ CU</span> para recogerlos. Caen del cielo y los generan los Worker Nodes.')}
-      ${row('Defensas', 'Elige una carta (arriba) y haz clic en una celda libre del tablero. Cada carta tarda un poco en recargarse.')}
-      ${row('Mejoras', 'Haz clic en una defensa ya colocada para mejorarla a v2. Cuesta lo mismo que la defensa.')}
-      ${row('Rollback', 'En los niveles 2 y 3, cada carril tiene un ↺ Rollback: limpia el carril una sola vez.')}
-      ${row('Niveles', 'Cada nivel cambia la regla de Game Over: Monolito, Microservicios y Kubernetes.')}
-      ${row('Teclas', '<kbd>1</kbd>–<kbd>8</kbd> defensas · <kbd>Q</kbd> quitar defensa · <kbd>Esc</kbd> o clic derecho cancelar · <kbd>P</kbd> pausa · <kbd>F</kbd> velocidad ×2 · <kbd>M</kbd> sonido')}
-    </dl>`;
+    const steps = HOWTO_STEPS.map(
+      (s, i) => `<li class="step">
+          <span class="step-n">${i + 1}</span>
+          <strong>${esc(s.title)}</strong>
+          <canvas data-scene="${i}" aria-hidden="true"></canvas>
+          <p>${esc(s.text).replace('⬢ CU', '<span class="cu-inline">⬢ CU</span>')}</p>
+        </li>`,
+    ).join('');
+    const key = (k: string, v: string) => `<span>${k} ${v}</span>`;
+    return `
+      <p class="howto-goal"><b>Objetivo:</b> protege la base (izquierda) del tráfico que llega desde Internet (derecha). Sobrevive a 10 olas.</p>
+      <ol class="steps">${steps}</ol>
+      <div class="keys">
+        <b>Teclas</b>
+        ${key('<kbd>1</kbd>–<kbd>8</kbd>', 'defensas')}
+        ${key('<kbd>Q</kbd>', 'quitar defensa')}
+        ${key('<kbd>Esc</kbd> o clic derecho', 'cancelar')}
+        ${key('<kbd>P</kbd>', 'pausa')}
+        ${key('<kbd>F</kbd>', 'velocidad ×2')}
+        ${key('<kbd>M</kbd>', 'sonido')}
+      </div>`;
   }
 
   private optionsScreen(): string {
@@ -205,9 +266,14 @@ export class HomeMenu {
         this.render();
       });
     });
-    this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-icon]').forEach((c) => paintConceptIcon(c, c.dataset.icon as ConceptId, 64));
     this.el.querySelectorAll<HTMLButtonElement>('.codex-item').forEach((b) => {
-      b.addEventListener('click', () => this.cb.openConcept(b.dataset.concept as ConceptId));
+      const id = b.dataset.concept ?? '';
+      b.addEventListener('click', () => this.cb.openConcept(id as ConceptId));
+      // under the mouse (or keyboard focus) the character acts
+      b.addEventListener('pointerenter', () => this.active.add(id));
+      b.addEventListener('pointerleave', () => this.active.delete(id));
+      b.addEventListener('focus', () => this.active.add(id));
+      b.addEventListener('blur', () => this.active.delete(id));
     });
     this.el.querySelectorAll<HTMLButtonElement>('[data-opt]').forEach((b) => {
       b.addEventListener('click', () => this.option(b.dataset.opt ?? '', b.dataset.val === '1'));

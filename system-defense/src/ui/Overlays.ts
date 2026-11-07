@@ -3,7 +3,8 @@ import type { GameContext } from '../game/GameContext';
 import { CONCEPTS, type ConceptId, type Link } from '../learn/concepts';
 import { CAUSES, describeIncident, levelLessonLoss, levelLessonWin, topDefenses } from '../learn/postmortem';
 import { HomeMenu } from './HomeMenu';
-import { paintConceptIcon } from './icons';
+import { loop } from './anim';
+import { drawConceptIcon, paintConceptIcon } from './icons';
 
 export interface OverlayCallbacks {
   onStart(mode: Mode): void;
@@ -136,7 +137,17 @@ export class Overlays {
         </div>
       </div>`;
     const canvas = this.concept.querySelector<HTMLCanvasElement>('.concept-icon');
-    if (canvas) paintConceptIcon(canvas, id);
+    if (canvas) {
+      // The character moves while the card is open (one still frame with "reduce motion").
+      let still = false;
+      try {
+        still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      } catch {
+        still = false;
+      }
+      if (still) paintConceptIcon(canvas, id);
+      else loop(() => canvas.isConnected && this.concept.classList.contains('visible'), (t) => drawConceptIcon(canvas, id, 84, t));
+    }
     const close = () => {
       const disable = this.concept.querySelector<HTMLInputElement>('[data-act="disable"]')?.checked ?? false;
       this.conceptClose = null;
