@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -3 15 19" width="90" height="114">
+  <!-- Leg with a running shoe pointing forward (left). Hip at (0, 0), sole at y = 14.5. -->
+  <path d="M 0 0 L 0 11" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 0 0 L 0 11" stroke="#334155" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M 3 10.5 L -5 10.5 C -8.5 10.5 -8.5 14.5 -5 14.5 L 3 14.5 Z" fill="#0f172a" stroke="#0a0a0a" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M -4 12.5 L 2 12.5" stroke="#22d3ee" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

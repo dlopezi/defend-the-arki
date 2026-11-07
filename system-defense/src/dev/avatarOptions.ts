@@ -19,18 +19,18 @@ export type Body = (g: G, a: Anim) => void;
 export type Pick = 'A' | 'B' | 'C';
 export type AvatarThreat = Exclude<EnemyType, 'botlet'>;
 
-const TAU = Math.PI * 2;
-const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+export const TAU = Math.PI * 2;
+export const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
-function rr(g: G, x: number, y: number, w: number, h: number, r: number): void {
+export function rr(g: G, x: number, y: number, w: number, h: number, r: number): void {
   g.beginPath();
   g.roundRect(x, y, w, h, r);
 }
-function circ(g: G, x: number, y: number, r: number): void {
+export function circ(g: G, x: number, y: number, r: number): void {
   g.beginPath();
   g.arc(x, y, r, 0, TAU);
 }
-function paint(g: G, fill: string, stroke?: string, lw = 2): void {
+export function paint(g: G, fill: string, stroke?: string, lw = 2): void {
   g.fillStyle = fill;
   g.fill();
   if (stroke) {
@@ -39,7 +39,7 @@ function paint(g: G, fill: string, stroke?: string, lw = 2): void {
     g.stroke();
   }
 }
-function line(g: G, x1: number, y1: number, x2: number, y2: number, color: string, lw = 2): void {
+export function line(g: G, x1: number, y1: number, x2: number, y2: number, color: string, lw = 2): void {
   g.strokeStyle = color;
   g.lineWidth = lw;
   g.beginPath();
@@ -47,7 +47,7 @@ function line(g: G, x1: number, y1: number, x2: number, y2: number, color: strin
   g.lineTo(x2, y2);
   g.stroke();
 }
-function txt(g: G, s: string, x: number, y: number, size: number, color: string, weight = 700, align: CanvasTextAlign = 'center'): void {
+export function txt(g: G, s: string, x: number, y: number, size: number, color: string, weight = 700, align: CanvasTextAlign = 'center'): void {
   g.font = `${weight} ${size}px ${MONO}`;
   g.textAlign = align;
   g.textBaseline = 'middle';
@@ -61,14 +61,14 @@ function eye(g: G, x: number, y: number, r: number, look = -1): void {
   circ(g, x + look * r * 0.35, y + r * 0.1, r * 0.5);
   paint(g, '#0f172a');
 }
-function legs(g: G, a: Anim, color: string, spread = 10, len = 12, wd = 7): void {
+export function legs(g: G, a: Anim, color: string, spread = 10, len = 12, wd = 7): void {
   g.fillStyle = color;
   rr(g, -spread - wd / 2 + a.step * 3, a.h / 2 - len, wd, len, 3);
   g.fill();
   rr(g, spread - wd / 2 - a.step * 3, a.h / 2 - len, wd, len, 3);
   g.fill();
 }
-function padlock(g: G, x: number, y: number, s: number, body = '#dc2626', shackle = '#fecaca'): void {
+export function padlock(g: G, x: number, y: number, s: number, body = '#dc2626', shackle = '#fecaca'): void {
   g.save();
   g.translate(x, y);
   g.scale(s, s);

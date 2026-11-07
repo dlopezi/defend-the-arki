@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-32 30 76 24" width="304" height="96">
+  <!-- Cart chassis: axle bar + two struts down to the wheels. Ground space (feet at y = 60). -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M -24 40 L 40 40 M -20 36 L -26 49 M 34 36 L 34 49" stroke="#0a0a0a" stroke-width="6"/>
+    <path d="M -24 40 L 40 40 M -20 36 L -26 49 M 34 36 L 34 49" stroke="#ca8a04" stroke-width="3"/>
+    <path d="M -23 39 L 39 39" stroke="#fde047" stroke-width="1.2"/>
+  </g>
+</svg>

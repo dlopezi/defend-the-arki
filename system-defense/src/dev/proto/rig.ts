@@ -189,59 +189,76 @@ export function enterBody(g: G, p: BfPose, t: number): void {
   g.translate(-px, -py);
 }
 
-/* ---------- Effects shared by all techniques (particles, not character art) ---------- */
+/* ---------- Effects shared by all characters (particles, not character art) ---------- */
 
-/** Exhaust smoke rising from the back. Drawn behind the character. */
-export function drawSmoke(g: G, t: number, pixel = false): void {
-  for (let i = 0; i < 4; i++) {
-    const age = (t * 0.7 + i / 4) % 1;
-    const x = 56 + age * 10 + Math.sin(t * 2 + i) * 3;
-    const y = -8 - age * 44;
+/**
+ * Particle budget per character. Kept low on purpose: with many threats on screen,
+ * particles add up fast. Only cheap shapes (circles, rects, lines), no blur, no gradients.
+ */
+export const FX_LIMITS = {
+  smokePuffs: 2,
+  stepDust: 3,
+  smashDust: 4,
+};
+
+/** Rising smoke puffs from (x, y). */
+export function drawSmokeAt(g: G, x: number, y: number, t: number, count = FX_LIMITS.smokePuffs, color = '#78716c'): void {
+  g.fillStyle = color;
+  for (let i = 0; i < count; i++) {
+    const age = (t * 0.7 + i / count) % 1;
     g.globalAlpha = 0.5 * (1 - age);
-    g.fillStyle = pixel ? '#57534e' : '#78716c';
     g.beginPath();
-    g.arc(x, y, 3 + age * 9, 0, TAU);
+    g.arc(x + age * 10 + Math.sin(t * 2 + i) * 3, y - age * 44, 3 + age * 9, 0, TAU);
     g.fill();
   }
   g.globalAlpha = 1;
 }
 
-/** Dust after a stomp (walk) or ground cracks after a smash (attack). Ground space. */
-export function drawImpact(g: G, p: BfPose): void {
-  if (p.impact <= 0) return;
-  const k = p.impact;
+/** Dust cloud on the ground at x. k: 1 right after the impact, fading to 0. */
+export function drawDust(g: G, x: number, groundY: number, k: number, count: number, size = 1): void {
+  if (k <= 0) return;
   const spread = 1.2 - k;
-  if (p.state === 'walk') {
-    const x0 = p.impactSide < 0 ? BF.frontWheel[0] : BF.backWheel[0];
-    for (let i = 0; i < 5; i++) {
-      g.globalAlpha = k * 0.55;
-      g.fillStyle = '#a8a29e';
-      g.beginPath();
-      g.arc(x0 + (i - 2) * 7 * spread, BF.ground - 2 - spread * 5, 3 + spread * 6, 0, TAU);
-      g.fill();
-    }
-    g.globalAlpha = 1;
-    return;
-  }
-  // Smash: big dust burst in front and yellow ground cracks.
-  const cx = -50;
-  for (let i = 0; i < 7; i++) {
-    g.globalAlpha = k * 0.6;
-    g.fillStyle = '#a8a29e';
+  g.fillStyle = '#a8a29e';
+  g.globalAlpha = k * 0.55;
+  for (let i = 0; i < count; i++) {
+    const off = i - (count - 1) / 2;
     g.beginPath();
-    g.arc(cx + (i - 3) * 10 * spread, BF.ground - 3 - spread * 10 - (i % 2) * 4, 4 + spread * 9, 0, TAU);
+    g.arc(x + off * 9 * spread * size, groundY - 2 - spread * 6 * size - (i % 2) * 3, (3 + spread * 7) * size, 0, TAU);
     g.fill();
   }
+  g.globalAlpha = 1;
+}
+
+/** Yellow ground cracks after a heavy smash. */
+export function drawCracks(g: G, x: number, groundY: number, k: number): void {
+  if (k <= 0) return;
   g.globalAlpha = k;
   g.strokeStyle = '#facc15';
   g.lineWidth = 2;
   for (const dir of [-1, 1]) {
     g.beginPath();
-    g.moveTo(cx, BF.ground);
-    g.lineTo(cx + dir * 10, BF.ground - 2);
-    g.lineTo(cx + dir * 18, BF.ground + 1);
-    g.lineTo(cx + dir * 28, BF.ground - 1);
+    g.moveTo(x, groundY);
+    g.lineTo(x + dir * 10, groundY - 2);
+    g.lineTo(x + dir * 18, groundY + 1);
+    g.lineTo(x + dir * 28, groundY - 1);
     g.stroke();
   }
   g.globalAlpha = 1;
+}
+
+/** Black Friday exhaust smoke. Drawn behind the character. */
+export function drawSmoke(g: G, t: number, pixel = false): void {
+  drawSmokeAt(g, 56, -8, t, FX_LIMITS.smokePuffs, pixel ? '#57534e' : '#78716c');
+}
+
+/** Black Friday: dust after a stomp (walk) or dust + cracks after a smash (attack). */
+export function drawImpact(g: G, p: BfPose): void {
+  if (p.impact <= 0) return;
+  if (p.state === 'walk') {
+    const x0 = p.impactSide < 0 ? BF.frontWheel[0] : BF.backWheel[0];
+    drawDust(g, x0, BF.ground, p.impact, FX_LIMITS.stepDust);
+    return;
+  }
+  drawDust(g, -50, BF.ground, p.impact, FX_LIMITS.smashDust, 1.4);
+  drawCracks(g, -50, BF.ground, p.impact);
 }

@@ -95,9 +95,11 @@ function drawGround(g: G, t: number): void {
 export interface ProtoSection {
   draw(t: number): void;
   technique(): Technique | null;
+  /** Removes the chosen technique. */
+  clear(): void;
 }
 
-/** Builds the section at the top of `container`. `onChange` runs when a technique is chosen. */
+/** Builds the section at the top of `container`. `onChange` runs when the chosen technique changes. */
 export function mountProtoSection(container: HTMLElement, onChange: () => void): ProtoSection {
   const style = document.createElement('style');
   style.textContent = css;
@@ -126,6 +128,17 @@ export function mountProtoSection(container: HTMLElement, onChange: () => void):
     <div class="proto-grid"></div>`;
   const grid = section.querySelector<HTMLElement>('.proto-grid');
   const views: { id: Technique; g: G; btn: HTMLButtonElement }[] = [];
+  const setChosen = (id: Technique | null): void => {
+    chosen = id;
+    try {
+      if (id) localStorage.setItem(STORAGE_KEY, id);
+      else localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    views.forEach((v) => v.btn.classList.toggle('chosen', v.id === id));
+    onChange();
+  };
 
   for (const tech of TECHNIQUES) {
     const btn = document.createElement('button');
@@ -141,16 +154,8 @@ export function mountProtoSection(container: HTMLElement, onChange: () => void):
     cons.className = 'pc minus';
     cons.textContent = `✗ ${tech.cons}`;
     btn.append(pros, cons);
-    btn.addEventListener('click', () => {
-      chosen = tech.id;
-      try {
-        localStorage.setItem(STORAGE_KEY, tech.id);
-      } catch {
-        /* ignore */
-      }
-      views.forEach((v) => v.btn.classList.toggle('chosen', v.id === tech.id));
-      onChange();
-    });
+    // Click the chosen technique again to unselect it.
+    btn.addEventListener('click', () => setChosen(chosen === tech.id ? null : tech.id));
     grid?.append(btn);
     views.push({ id: tech.id, g: setupCanvas(canvas), btn });
   }
@@ -169,6 +174,7 @@ export function mountProtoSection(container: HTMLElement, onChange: () => void):
 
   return {
     technique: () => chosen,
+    clear: () => setChosen(null),
     draw(t: number) {
       for (const v of views) {
         const g = v.g;

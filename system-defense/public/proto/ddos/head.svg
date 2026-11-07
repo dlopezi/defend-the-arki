@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -19 28 23" width="140" height="115">
+  <!-- Small head (makes the body look huge). Neck at (0, 0). Uneven eyes. -->
+  <defs>
+    <g id="pk">
+      <rect x="-2.5" y="-2.5" width="5" height="5" rx="0.9" stroke="#0a0a0a" stroke-width="0.9"/>
+    </g>
+  </defs>
+  <use href="#pk" transform="translate(-7 -14) rotate(20)" fill="#dc2626"/>
+  <use href="#pk" transform="translate(0 -16) rotate(-10)" fill="#ef4444"/>
+  <use href="#pk" transform="translate(6 -13) rotate(25)" fill="#b91c1c"/>
+  <path d="M -10 -2 C -12 -10 -4 -15 4 -13 C 10 -11 11 -4 8 1 L -8 2 Z" fill="#450a0a" stroke="#0a0a0a" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M -9 -6 C -6 -11 0 -13 5 -12" stroke="#991b1b" stroke-width="1" fill="none"/>
+  <!-- heavy brow -->
+  <path d="M -10 -8.5 L 1 -9.5 L 0 -7 L -9 -6 Z" fill="#7f1d1d" stroke="#0a0a0a" stroke-width="1" stroke-linejoin="round"/>
+  <!-- big slit eye + small eye -->
+  <ellipse cx="-5" cy="-4.8" rx="3.4" ry="1.7" transform="rotate(-12 -5 -4.8)" fill="#fde047"/>
+  <ellipse cx="-5.6" cy="-4.8" rx="0.8" ry="1.4" fill="#0a0a0a"/>
+  <ellipse cx="3" cy="-6" rx="1.8" ry="1.1" fill="#fde047"/>
+  <!-- jaw line with teeth -->
+  <path d="M -9 0 L 6 0.5" stroke="#0a0a0a" stroke-width="1.2"/>
+  <path d="M -8 0 L -7 1.8 L -6 0 M -4 0.1 L -3 1.9 L -2 0.2 M 0 0.2 L 1 2 L 2 0.3" stroke="#fef2f2" stroke-width="0.8" fill="none"/>
+</svg>

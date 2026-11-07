@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-11 -4 21 21" width="105" height="105">
+  <!-- Short, heavy leg. Hip at (0, 0), sole at y = 15. -->
+  <path d="M -6 -2 L 6 -2 L 7 10 L -7 10 Z" fill="#7f1d1d" stroke="#0a0a0a" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M 2 -2 L 6 -2 L 7 10 L 3 10 Z" fill="#000" opacity="0.3"/>
+  <path d="M -9 10 L 8 10 L 8 15 L -9 15 Z" fill="#450a0a" stroke="#0a0a0a" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M -8 11.3 L 7 11.3" stroke="#991b1b" stroke-width="1"/>
+</svg>

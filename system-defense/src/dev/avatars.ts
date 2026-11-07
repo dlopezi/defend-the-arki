@@ -1,7 +1,13 @@
-import { CELL_H, CELL_W, ENEMIES, ENEMY_ORDER } from '../config';
+import { CELL_H, ENEMIES, ENEMY_ORDER } from '../config';
 import { drawEnemy } from '../render/sprites';
-import { AVATAR_OPTIONS, BOTLET_OPTIONS, STYLE_NAMES, type AvatarThreat, type Body, type G, type Pick } from './avatarOptions';
+import { AVATAR_OPTIONS, BOTLET_OPTIONS, STYLE_NAMES, type AvatarThreat, type G, type Pick } from './avatarOptions';
+import { drawBody, drawLane, setupCanvas, sizeOf } from './pageKit';
+import { mountDefenseRound2, mountDefenseRound3, mountDefenseSection } from './defenseSection';
+import { mountPilotSection } from './proto/pilotSection';
 import { mountProtoSection } from './proto/protoSection';
+import { mountRound2Section } from './round2Section';
+import { mountRound3Section } from './round3Section';
+import { mountRound4Section } from './round4Section';
 
 /*
  * Dev page: compare 3 avatar options per threat, animated at game scale,
@@ -15,7 +21,6 @@ const ORDER: AvatarThreat[] = ['blackFriday', ...ENEMY_ORDER.filter((e): e is Av
 /** 'keep' = keep the avatar the game has now. */
 type Choice = Pick | 'keep';
 type Picks = Partial<Record<AvatarThreat, Choice>>;
-const choiceLabel = (c: Choice | undefined): string => (c === undefined ? '—' : c === 'keep' ? 'actual' : c);
 
 function loadPicks(): Picks {
   try {
@@ -56,7 +61,8 @@ canvas { display:block; border-radius: 10px; background: #070b17; }
 .opt { position: relative; display:flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--panel2); border: 2px solid var(--line); border-radius: 12px; color: var(--text); cursor: pointer; text-align: left; font: inherit; }
 .opt:hover { border-color: #38bdf8; }
 .opt.chosen { border-color: #34d399; box-shadow: 0 0 0 2px rgba(52,211,153,.35); }
-.opt .label { display:flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.opt .label { display:flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 13px; }
+.opt .check { flex-shrink: 0; }
 .opt .label b { font-family: var(--mono); color: var(--blue); }
 .opt .check { font: 700 11px var(--mono); color: #34d399; visibility: hidden; }
 .opt.chosen .check { visibility: visible; }
@@ -64,62 +70,12 @@ canvas { display:block; border-radius: 10px; background: #070b17; }
 .bar { position: fixed; left: 0; right: 0; bottom: 0; display:flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 10px 16px; background: rgba(11,18,36,.97); border-top: 1px solid var(--line); font-size: 13px; }
 .bar .summary { font-family: var(--mono); color: #cbd5e1; }
 .bar button { padding: 8px 16px; font: 700 13px system-ui, sans-serif; color: var(--text); background: #0369a1; border: 1px solid #38bdf8; border-radius: 8px; cursor: pointer; }
+.bar button.clear { background: transparent; border-color: var(--line); }
 .bar .done { color: #34d399; }
+.old { margin-top: 18px; }
+.old > summary { cursor: pointer; padding: 10px 14px; margin-bottom: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; font: 700 14px var(--mono); color: #cbd5e1; }
 @media (max-width: 820px) { .row { grid-template-columns: 1fr 1fr; } .info { grid-column: 1 / -1; } }
 `;
-
-/** Sets up a crisp canvas of the given CSS size and returns its 2D context. */
-function setupCanvas(c: HTMLCanvasElement, cssW: number, cssH: number): G {
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  c.width = cssW * dpr;
-  c.height = cssH * dpr;
-  const g = c.getContext('2d');
-  if (!g) throw new Error('no 2d context');
-  g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return g;
-}
-
-function drawLane(g: G, W: number, H: number, t: number): void {
-  g.fillStyle = '#070b17';
-  g.fillRect(0, 0, W, H);
-  const cw = CELL_W * 0.75;
-  for (let i = 0; i * cw < W; i++) {
-    g.fillStyle = i % 2 ? '#121c39' : '#0f1730';
-    g.fillRect(i * cw, 8, cw, H - 16);
-  }
-  g.strokeStyle = 'rgba(56,189,248,0.12)';
-  g.lineWidth = 2;
-  g.setLineDash([6, 10]);
-  g.lineDashOffset = t * 30;
-  g.beginPath();
-  g.moveTo(0, H - 22);
-  g.lineTo(W, H - 22);
-  g.stroke();
-  g.setLineDash([]);
-}
-
-/** Draws a candidate body like the game does: ground shadow + walking bob. */
-function drawBody(g: G, body: Body, x: number, y: number, w: number, h: number, t: number, scale: number): void {
-  const step = Math.sin(t * 9 + x * 0.13);
-  g.save();
-  g.translate(x, y);
-  g.scale(scale, scale);
-  g.fillStyle = 'rgba(0,0,0,0.35)';
-  g.beginPath();
-  g.ellipse(0, h / 2 + 2, w * 0.45, 6, 0, 0, Math.PI * 2);
-  g.fill();
-  g.translate(0, step * 2);
-  body(g, { w, h, t, step });
-  g.restore();
-}
-
-/** Memory Leak grows in the game; the preview loops through its sizes. */
-function sizeOf(type: AvatarThreat, t: number): { w: number; h: number } {
-  const s = ENEMIES[type];
-  if (type !== 'memoryLeak') return { w: s.width, h: s.height };
-  const k = 1 + 0.9 * ((Math.sin(t * 0.8) + 1) / 2);
-  return { w: s.width * k, h: s.height * k };
-}
 
 interface View {
   type: AvatarThreat;
@@ -139,22 +95,50 @@ function main(): void {
   if (!root) return;
   const main = document.createElement('main');
   main.innerHTML = `
-    <h1>Avatares de <span>amenazas</span></h1>
-    <p class="intro">Arriba: el nuevo prototipo de Black Friday en 3 técnicas. Abajo: la primera ronda de opciones (A, B, C o "Mantener actual").</p>
+    <h1>Avatares de <span>defensas</span></h1>
+    <p class="intro">Ronda 3 de defensas. Las rondas 1 y 2 y los avatares de amenazas (ya en el juego) están plegados al final.</p>
 `;
   root.append(main);
-  // New prototype first: the same boss drawn with 3 techniques.
-  const proto = mountProtoSection(main, () => updateBar());
+  // Current round: defenses, round 3. Rounds 2 and 1 stay folded below (not drawn while closed).
+  const defense = mountDefenseRound3(main, () => updateBar());
+  const defOld = document.createElement('details');
+  defOld.className = 'old';
+  defOld.innerHTML = '<summary>Defensas · rondas 2 y 1</summary>';
+  main.append(defOld);
+  const defense2 = mountDefenseRound2(defOld, () => updateBar());
+  const defense1 = mountDefenseSection(defOld, () => updateBar());
+  // Threat avatars are done: all their rounds stay available, folded (and not drawn while closed).
+  const threats = document.createElement('details');
+  threats.className = 'old';
+  threats.innerHTML = '<summary>Avatares de amenazas (terminado) · rondas 1 a 4</summary>';
+  main.append(threats);
+  const round4 = mountRound4Section(threats, () => updateBar());
+  const old = document.createElement('details');
+  old.className = 'old';
+  old.innerHTML = '<summary>Rondas anteriores · rondas 3 y 2, piloto SVG, 3 técnicas y ronda 1</summary>';
+  threats.append(old);
+  const round3 = mountRound3Section(old, () => updateBar());
+  const round2 = mountRound2Section(old, () => updateBar());
+  const pilot = mountPilotSection(old);
+  const proto = mountProtoSection(old, () => updateBar());
   const styles = document.createElement('div');
   styles.innerHTML = `<h2 class="sub">Primera ronda · opciones simples</h2><div class="styles">${PICKS.map((p) => `<span><b>${p}</b> · ${STYLE_NAMES[p]}</span>`).join('')}</div>`;
-  main.append(styles);
+  old.append(styles);
 
   const views: View[] = [];
   const optButtons = new Map<AvatarThreat, HTMLButtonElement[]>();
+  // Click the chosen option again to unselect it.
   const choose = (type: AvatarThreat, c: Choice, btn: HTMLButtonElement): void => {
-    picks[type] = c;
+    const off = picks[type] === c;
+    if (off) delete picks[type];
+    else picks[type] = c;
     savePicks(picks);
-    optButtons.get(type)?.forEach((x) => x.classList.toggle('chosen', x === btn));
+    optButtons.get(type)?.forEach((x) => x.classList.toggle('chosen', !off && x === btn));
+    updateBar();
+  };
+  // "Quitar selección" clears the current round only (defenses); threat picks are kept.
+  const clearAll = (): void => {
+    defense.clear();
     updateBar();
   };
 
@@ -195,23 +179,23 @@ function main(): void {
       views.push({ type, pick: p, g: setupCanvas(c, 240, 180), W: 240, H: 180 });
     }
     optButtons.set(type, buttons);
-    main.append(row);
+    old.append(row);
   }
 
   const bar = document.createElement('div');
   bar.className = 'bar';
-  bar.innerHTML = `<span class="summary"></span><button type="button">Copiar selección</button><span class="done"></span>`;
+  bar.innerHTML = `<span class="summary"></span><button type="button" class="copy">Copiar selección</button><button type="button" class="clear">Quitar selección</button><span class="done"></span>`;
   document.body.append(bar);
   const summary = bar.querySelector<HTMLElement>('.summary');
   const done = bar.querySelector<HTMLElement>('.done');
-  const techText = () => `Técnica BF: ${proto.technique() ?? '—'}`;
-  const text = () => `${techText()} · Avatares: ${ORDER.map((t) => `${ENEMIES[t].name}=${choiceLabel(picks[t])}`).join(', ')}`;
+  // The bar shows the current round: defenses.
+  const text = () => defense.copyText();
   function updateBar(): void {
-    const n = ORDER.filter((t) => picks[t]).length;
-    if (summary) summary.textContent = `${techText()} · Elegidas ${n}/${ORDER.length} · ${ORDER.map((t) => `${ENEMIES[t].tag}:${choiceLabel(picks[t])}`).join(' ')}`;
+    if (summary) summary.textContent = defense.summary();
     if (done) done.textContent = '';
   }
-  bar.querySelector('button')?.addEventListener('click', async () => {
+  bar.querySelector('.clear')?.addEventListener('click', clearAll);
+  bar.querySelector('.copy')?.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(text());
       if (done) done.textContent = 'Copiado. Pégalo en el chat.';
@@ -225,6 +209,23 @@ function main(): void {
   const frozen = new URLSearchParams(location.search).get('t');
   const frame = (now: number) => {
     const t = frozen !== null ? Number(frozen) : now / 1000;
+    defense.draw(t);
+    if (defOld.open) {
+      defense2.draw(t);
+      defense1.draw(t);
+    }
+    if (!threats.open) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    round4.draw(t);
+    if (!old.open) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    round3.draw(t);
+    round2.draw(t);
+    pilot.draw(t);
     proto.draw(t);
     for (const v of views) {
       const { g, W, H, type } = v;

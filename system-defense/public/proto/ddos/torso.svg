@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-42 -46 84 78" width="420" height="390">
+  <!-- Ataque DDoS "Swarm Colossus" · torso. A hunched mass of packets with a glowing chest crack.
+       Body space; feet at y = 37, sway pivot (2, 22). -->
+  <defs>
+    <linearGradient id="mass" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#b91c1c"/>
+      <stop offset="0.55" stop-color="#7f1d1d"/>
+      <stop offset="1" stop-color="#450a0a"/>
+    </linearGradient>
+    <radialGradient id="core" cx="6" cy="-7" r="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fef9c3"/>
+      <stop offset="0.35" stop-color="#fde047"/>
+      <stop offset="0.75" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#9a3412"/>
+    </radialGradient>
+    <filter id="glow" x="-1" y="-1" width="3" height="3">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- one packet: a small rounded square with a highlight -->
+    <g id="pk">
+      <rect x="-3.5" y="-3.5" width="7" height="7" rx="1.2" stroke="#0a0a0a" stroke-width="1.1"/>
+      <path d="M -2.5 -2.3 L 2.5 -2.3" stroke="#fca5a5" stroke-width="0.8" opacity="0.7"/>
+    </g>
+  </defs>
+
+  <!-- the mass (hunched: bigger at the back-top) -->
+  <path d="M -26 -18 C -20 -32 4 -36 20 -30 C 32 -26 36 -12 34 2 C 32 14 24 22 10 24 C -6 26 -22 22 -28 10 C -32 0 -32 -10 -26 -18 Z"
+        fill="url(#mass)" stroke="#0a0a0a" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M 34 -6 C 34 10 24 22 10 24 C -6 26 -22 22 -28 10 C -8 16 20 10 34 -6 Z" fill="#000" opacity="0.3"/>
+
+  <!-- glowing chest crack (signature) -->
+  <path d="M -4 -16 L 4 -19 L 9 -12 L 15 -14 L 14 -2 L 7 3 L 2 -1 L -3 2 L -5 -8 Z" fill="url(#core)" stroke="#0a0a0a" stroke-width="1.4" stroke-linejoin="round" filter="url(#glow)"/>
+  <text x="6" y="-5.5" font-family="ui-monospace, Menlo, monospace" font-weight="900" font-size="5.5" fill="#7c2d12" text-anchor="middle">10⁶</text>
+
+  <!-- packets breaking the outline (jagged, uneven silhouette) -->
+  <use href="#pk" transform="translate(-22 -28) rotate(15)" fill="#dc2626"/>
+  <use href="#pk" transform="translate(-12 -34) rotate(-10) scale(1.15)" fill="#b91c1c"/>
+  <use href="#pk" transform="translate(-1 -37) rotate(20)" fill="#ef4444"/>
+  <use href="#pk" transform="translate(10 -37) rotate(-15) scale(1.2)" fill="#991b1b"/>
+  <use href="#pk" transform="translate(21 -33) rotate(10)" fill="#dc2626"/>
+  <use href="#pk" transform="translate(30 -25) rotate(-20) scale(1.15)" fill="#b91c1c"/>
+  <use href="#pk" transform="translate(35 -13) rotate(25)" fill="#ef4444"/>
+  <use href="#pk" transform="translate(36 0) rotate(-10) scale(1.1)" fill="#991b1b"/>
+  <use href="#pk" transform="translate(32 12) rotate(15)" fill="#dc2626"/>
+  <use href="#pk" transform="translate(22 21) rotate(-5) scale(1.1)" fill="#b91c1c"/>
+  <use href="#pk" transform="translate(9 25) rotate(20)" fill="#ef4444"/>
+  <use href="#pk" transform="translate(-5 24) rotate(-15) scale(1.1)" fill="#991b1b"/>
+  <use href="#pk" transform="translate(-19 20) rotate(10)" fill="#dc2626"/>
+  <use href="#pk" transform="translate(-29 10) rotate(-20) scale(1.1)" fill="#b91c1c"/>
+  <use href="#pk" transform="translate(-33 -2) rotate(15)" fill="#ef4444"/>
+  <use href="#pk" transform="translate(-31 -14) rotate(-10)" fill="#991b1b"/>
+
+  <!-- packets on the surface -->
+  <use href="#pk" transform="translate(-15 -15) rotate(10) scale(0.85)" fill="#991b1b"/>
+  <use href="#pk" transform="translate(22 -15) rotate(-15) scale(0.85)" fill="#991b1b"/>
+  <use href="#pk" transform="translate(-12 6) rotate(20) scale(0.85)" fill="#7f1d1d"/>
+  <use href="#pk" transform="translate(22 8) rotate(-10) scale(0.85)" fill="#7f1d1d"/>
+  <use href="#pk" transform="translate(-20 -4) rotate(-25) scale(0.8)" fill="#b91c1c"/>
+  <use href="#pk" transform="translate(26 -4) rotate(30) scale(0.8)" fill="#b91c1c"/>
+  <use href="#pk" transform="translate(14 14) rotate(5) scale(0.75)" fill="#991b1b"/>
+</svg>
