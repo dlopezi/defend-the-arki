@@ -84,31 +84,55 @@ function edge(g: G, L: Look, color = L.p.dark): void {
 
 /** An isometric box standing on the ground point (cx, cy): w is half its width, h its height. */
 export function isoBox(g: G, L: Look, cx: number, cy: number, w: number, h: number, p: Palette = L.p): void {
-  const d = w / 2;
+  isoBlock(g, L, cx, cy + w / 2, w, w, h, p);
+}
+
+/**
+ * An isometric block with its front corner on the ground at (fx, fy): `a` is the length of the
+ * left face, `b` of the right face (both measured across the screen), `h` its height.
+ */
+export function isoBlock(g: G, L: Look, fx: number, fy: number, a: number, b: number, h: number, p: Palette = L.p): void {
   const PL = { ...L, p };
-  poly(g, [[cx - w, cy], [cx, cy + d], [cx, cy + d - h], [cx - w, cy - h]]);
-  fillFace(g, PL, p.dark, cy - h, cy + d, shade(p.dark, 0.15), shade(p.dark, -0.35));
+  const lx = fx - a;
+  const ly = fy - a / 2;
+  const rx = fx + b;
+  const ry = fy - b / 2;
+  const top = Math.min(ly, ry) - h;
+  poly(g, [[lx, ly], [fx, fy], [fx, fy - h], [lx, ly - h]]);
+  fillFace(g, PL, p.dark, top, fy, shade(p.dark, 0.15), shade(p.dark, -0.35));
   edge(g, PL);
-  poly(g, [[cx, cy + d], [cx + w, cy], [cx + w, cy - h], [cx, cy + d - h]]);
-  fillFace(g, PL, p.base, cy - h, cy + d, p.light, shade(p.base, -0.2));
+  poly(g, [[fx, fy], [rx, ry], [rx, ry - h], [fx, fy - h]]);
+  fillFace(g, PL, p.base, top, fy, p.light, shade(p.base, -0.2));
   edge(g, PL);
-  poly(g, [[cx - w, cy - h], [cx, cy - d - h], [cx + w, cy - h], [cx, cy + d - h]]);
-  fillFace(g, PL, p.top, cy - d - h, cy + d - h, shade(p.top, 0.3), p.top);
+  poly(g, [[lx, ly - h], [lx + b, ly - b / 2 - h], [rx, ry - h], [fx, fy - h]]);
+  fillFace(g, PL, p.top, ly - b / 2 - h, fy - h, shade(p.top, 0.3), p.top);
   edge(g, PL);
   if (L.rich) {
     // light catches the top edges and the front corner
     g.globalAlpha = 0.85;
     g.beginPath();
-    g.moveTo(cx - w, cy - h);
-    g.lineTo(cx, cy + d - h);
-    g.lineTo(cx + w, cy - h);
-    g.moveTo(cx, cy + d - h);
-    g.lineTo(cx, cy + d);
+    g.moveTo(lx, ly - h);
+    g.lineTo(fx, fy - h);
+    g.lineTo(rx, ry - h);
+    g.moveTo(fx, fy - h);
+    g.lineTo(fx, fy);
     g.lineWidth = 0.7;
     g.strokeStyle = shade(p.top, 0.5);
     g.stroke();
     g.globalAlpha = 1;
   }
+}
+
+/**
+ * Draws on a face of an isoBlock as if it were flat: inside `draw`, x runs along the face
+ * (0 = the face's front corner for 'right', its left corner for 'left') and y goes down (y < 0 is up).
+ */
+export function onFace(g: G, side: 'left' | 'right', fx: number, fy: number, a: number, draw: () => void): void {
+  g.save();
+  if (side === 'left') g.transform(1, 0.5, 0, 1, fx - a, fy - a / 2);
+  else g.transform(1, -0.5, 0, 1, fx, fy);
+  draw();
+  g.restore();
 }
 
 /** A quad on the right (u from the front corner) or left (u from the left corner) face of an isoBox; v is height. */

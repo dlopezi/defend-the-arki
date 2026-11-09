@@ -231,9 +231,7 @@ function drawScene(v: View, t: number, action: boolean, version: Version): void 
 
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-const css = `.round .opt .ref { font-size: 11px; line-height: 1.35; color: var(--muted); }
-.round .row.pair { grid-template-columns: 190px repeat(2, 1fr); }
-@media (max-width: 820px) { .round .row.pair { grid-template-columns: 1fr 1fr; } }`;
+const css = `.round .opt .ref { font-size: 11px; line-height: 1.35; color: var(--muted); }`;
 let cssAdded = false;
 
 function mountDefenseRound(container: HTMLElement, cfg: DefRoundConfig, onChange: () => void): RoundSection {
