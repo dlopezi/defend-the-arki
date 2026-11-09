@@ -1,5 +1,3 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /*
@@ -9,19 +7,11 @@ import { describe, expect, it } from 'vitest';
  * Comments are ignored. Dev-only pages (src/dev) are not translated on purpose.
  */
 
-const SRC = join(import.meta.dirname, '..', 'src');
-const SKIP_DIRS = ['dev'];
+// Source files as text (Vite import.meta.glob), without the dev-only pages.
+const SOURCES = import.meta.glob<string>(['../src/**/*.ts', '!../src/dev/**'], { query: '?raw', import: 'default', eager: true });
 const SPANISH = /[áéíóúüñ¿¡ÁÉÍÓÚÜÑ]/;
 const TRANSLATED_CALLS = new Set(['t', 'tr']);
 const SPANISH_KEYS = new Set(['es', 'ES']);
-
-function files(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
-    const p = join(dir, d.name);
-    if (d.isDirectory()) return SKIP_DIRS.includes(d.name) ? [] : files(p);
-    return d.name.endsWith('.ts') ? [p] : [];
-  });
-}
 
 /** Name before a '(' (call) or the object key before a '{' (`es: {`), if any. */
 function nameBefore(src: string, at: number, open: '(' | '{'): string {
@@ -120,7 +110,8 @@ describe('i18n', () => {
   });
 
   it('every Spanish text in src/ has an English version', () => {
-    const problems = files(SRC).flatMap((f) => untranslated(readFileSync(f, 'utf8')).map((p) => `${relative(SRC, f)}:${p.line}  ${p.text}`));
+    expect(Object.keys(SOURCES).length).toBeGreaterThan(20);
+    const problems = Object.entries(SOURCES).flatMap(([f, src]) => untranslated(src).map((p) => `${f.replace('../src/', '')}:${p.line}  ${p.text}`));
     expect(problems, 'wrap these texts in t(english, español)').toEqual([]);
   });
 });
