@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { shade } from '../src/dev/isoKit';
 import { DEF_OPTIONS_R4 } from '../src/dev/defenseOptions4';
 import { BOTLET_R5, THREAT_OPTIONS_R5 } from '../src/dev/threatOptionsR5';
+import { THREAT_R6 } from '../src/dev/threatOptionsR6';
 
 describe('isoKit shade', () => {
   it('mixes a colour toward white with a positive amount', () => {
@@ -90,6 +91,21 @@ describe('threat avatars, round 5', () => {
             expect(() => THREAT_OPTIONS_R5[type][pick].body(g, anim), `${type} ${pick} atk=${atk}`).not.toThrow();
             expect(() => BOTLET_R5[pick](g, anim)).not.toThrow();
           }
+        }
+      }
+    }
+  });
+});
+
+describe('threat avatars, round 6', () => {
+  it('has two new options for Black Friday and SQL Injection, and DDoS with 4 robots, all drawing without errors', () => {
+    const g = fakeContext();
+    const bodies = [THREAT_R6.blackFriday.A, THREAT_R6.blackFriday.B, THREAT_R6.sqli.A, THREAT_R6.sqli.B, { name: 'DDoS', body: THREAT_R6.ddos4 }];
+    for (const o of bodies) {
+      expect(o.name.length).toBeGreaterThan(0);
+      for (const atk of [0, 0.6]) {
+        for (const t of [0, 0.4, 1.3, 2.9]) {
+          expect(() => o.body(g, { w: 60, h: 70, t, step: atk ? 0 : Math.sin(t * 9), atk }), `${o.name} atk=${atk}`).not.toThrow();
         }
       }
     }

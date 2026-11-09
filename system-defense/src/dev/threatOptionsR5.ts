@@ -18,17 +18,17 @@ export interface ThreatOptionR5 {
   body: Body2;
 }
 
-const flat = (color: string): Look => ({ rich: false, p: paletteOf(color) });
-const BAND = '#0369a1';
+export const flat = (color: string): Look => ({ rich: false, p: paletteOf(color) });
+export const BAND = '#0369a1';
 const BOT_LED = '#ef4444';
 
 /** Hover offset for floating threats. */
-const hover = (t: number, amp = 2): number => Math.sin(t * 4) * amp;
+export const hover = (t: number, amp = 2): number => Math.sin(t * 4) * amp;
 
 /* ======================= shared parts ======================= */
 
 /** Rectangle in face space (see onFace). */
-function rect(g: G, x: number, y: number, w: number, h: number, color: string): void {
+export function rect(g: G, x: number, y: number, w: number, h: number, color: string): void {
   g.fillStyle = color;
   g.fillRect(x, y, w, h);
 }
@@ -56,7 +56,7 @@ function screen(g: G, x: number, y: number, w: number, h: number, led: string, t
 }
 
 /** Tráfico family band with a label. Face space. */
-function band(g: G, x: number, y: number, w: number, h: number, label: string, size: number): void {
+export function band(g: G, x: number, y: number, w: number, h: number, label: string, size: number): void {
   rect(g, x, y, w, h, BAND);
   if (label) txt(g, label, x + w / 2, y + h / 2 + 0.3, size, '#e0f2fe', 800);
 }
@@ -104,7 +104,7 @@ function vents(g: G, x: number, y: number, n: number, color: string): void {
 }
 
 /** Flat hover pad under a floating threat (no glow). */
-function hoverPad(g: G, y: number, w: number, color: string, t: number): void {
+export function hoverPad(g: G, y: number, w: number, color: string, t: number): void {
   g.globalAlpha = 0.45 + 0.25 * Math.sin(t * 8);
   g.fillStyle = color;
   g.beginPath();
@@ -116,7 +116,7 @@ function hoverPad(g: G, y: number, w: number, color: string, t: number): void {
 /* ======================= Tráfico ======================= */
 
 /** A request robot with its feet at (0, 0): the Tráfico Normal, and the mini requests of DDoS and Black Friday. */
-function requestBot(g: G, t: number, step: number, atk: number, color: string, led: string, label: string, seed: number, d: boolean): void {
+export function requestBot(g: G, t: number, step: number, atk: number, color: string, led: string, label: string, seed: number, d: boolean): void {
   const L = flat(color);
   const legL = flat(shade(color, -0.45));
   legs(g, legL, -4, 0, step, 9);
@@ -153,9 +153,9 @@ const normal = (d: boolean): Body2 => (g, a) => {
 const SWARM: [number, number, number][] = [
   [26, -6, 0.5], [14, 16, 0.55], [-4, -12, 0.6], [30, 22, 0.6], [-8, 14, 0.7], [-26, 24, 0.75],
 ];
-const ddos = (d: boolean): Body2 => (g, a) => {
+export const ddos = (d: boolean, swarm: [number, number, number][] = SWARM): Body2 => (g, a) => {
   const { t, atk } = a;
-  SWARM.forEach(([x, y, s], i) => {
+  swarm.forEach(([x, y, s], i) => {
     g.save();
     g.translate(x - atk * (4 + i * 1.5), y + Math.sin(t * 5 + i) * 1.5);
     g.scale(s, s);
@@ -729,7 +729,7 @@ function impact(g: G, x: number, y: number, k: number): void {
  * Attack, the same for every threat: it rams toward the defense on its left (with a small
  * squash) and a flat impact star shows the hit. Own moves (arm, plunger, lock…) come on top.
  */
-const withAttack = (body: Body2): Body2 => (g, a) => {
+export const withAttack = (body: Body2): Body2 => (g, a) => {
   const lunge = a.atk * 12;
   g.save();
   g.translate(-lunge, 0);

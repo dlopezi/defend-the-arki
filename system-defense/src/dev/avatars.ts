@@ -9,6 +9,7 @@ import { mountRound2Section } from './round2Section';
 import { mountRound3Section } from './round3Section';
 import { mountRound4Section } from './round4Section';
 import { mountRound5Section } from './round5Section';
+import { mountRound6Section } from './round6Section';
 
 /*
  * Dev page: compare 3 avatar options per threat, animated at game scale,
@@ -97,11 +98,16 @@ function main(): void {
   const main = document.createElement('main');
   main.innerHTML = `
     <h1>Avatares de <span>amenazas</span></h1>
-    <p class="intro">Ronda 5 de amenazas: estilo Design the Arki, la misma línea que las defensas de la ronda 4. Las defensas y las rondas anteriores de amenazas están plegadas al final.</p>
+    <p class="intro">Ronda 6 de amenazas: ajustes de la ronda 5 (estilo Design the Arki, opción A). La ronda 5, las defensas y las rondas anteriores están plegadas al final.</p>
 `;
   root.append(main);
-  // Current round: threats, round 5. Defenses (rounds 4 to 1) and older threat rounds stay folded below (not drawn while closed).
-  const current = mountRound5Section(main, () => updateBar());
+  // Current round: threats, round 6 (round 5 folded below). Defenses (rounds 4 to 1) and older threat rounds stay folded below (not drawn while closed).
+  const current = mountRound6Section(main, () => updateBar());
+  const r5Old = document.createElement('details');
+  r5Old.className = 'old';
+  r5Old.innerHTML = '<summary>Amenazas · ronda 5 (elegiste A, plano)</summary>';
+  main.append(r5Old);
+  const round5 = mountRound5Section(r5Old, () => updateBar());
   const defOld = document.createElement('details');
   defOld.className = 'old';
   defOld.innerHTML = '<summary>Defensas · rondas 4 a 1 (ronda 4: elegiste A, plano)</summary>';
@@ -139,7 +145,7 @@ function main(): void {
     optButtons.get(type)?.forEach((x) => x.classList.toggle('chosen', !off && x === btn));
     updateBar();
   };
-  // "Quitar selección" clears the current round only (threats, round 5); other picks are kept.
+  // "Quitar selección" clears the current round only (threats, round 6); other picks are kept.
   const clearAll = (): void => {
     current.clear();
     updateBar();
@@ -191,7 +197,7 @@ function main(): void {
   document.body.append(bar);
   const summary = bar.querySelector<HTMLElement>('.summary');
   const done = bar.querySelector<HTMLElement>('.done');
-  // The bar shows the current round: threats, round 5.
+  // The bar shows the current round: threats, round 6.
   const text = () => current.copyText();
   function updateBar(): void {
     if (summary) summary.textContent = current.summary();
@@ -213,6 +219,7 @@ function main(): void {
   const frame = (now: number) => {
     const t = frozen !== null ? Number(frozen) : now / 1000;
     current.draw(t);
+    if (r5Old.open) round5.draw(t);
     if (defOld.open) {
       defense.draw(t);
       defense3.draw(t);
