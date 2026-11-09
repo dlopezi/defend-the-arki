@@ -2,7 +2,7 @@ import { CELL_H, ENEMIES, ENEMY_ORDER } from '../config';
 import { drawEnemy } from '../render/sprites';
 import { AVATAR_OPTIONS, BOTLET_OPTIONS, STYLE_NAMES, type AvatarThreat, type G, type Pick } from './avatarOptions';
 import { drawBody, drawLane, setupCanvas, sizeOf } from './pageKit';
-import { mountDefenseRound2, mountDefenseRound3, mountDefenseSection } from './defenseSection';
+import { mountDefenseRound2, mountDefenseRound3, mountDefenseRound4, mountDefenseSection } from './defenseSection';
 import { mountPilotSection } from './proto/pilotSection';
 import { mountProtoSection } from './proto/protoSection';
 import { mountRound2Section } from './round2Section';
@@ -96,15 +96,16 @@ function main(): void {
   const main = document.createElement('main');
   main.innerHTML = `
     <h1>Avatares de <span>defensas</span></h1>
-    <p class="intro">Ronda 3 de defensas. Las rondas 1 y 2 y los avatares de amenazas (ya en el juego) están plegados al final.</p>
+    <p class="intro">Ronda 4 de defensas: estilo Design the Arki. Las rondas 1 a 3 y los avatares de amenazas (ya en el juego) están plegados al final.</p>
 `;
   root.append(main);
-  // Current round: defenses, round 3. Rounds 2 and 1 stay folded below (not drawn while closed).
-  const defense = mountDefenseRound3(main, () => updateBar());
+  // Current round: defenses, round 4. Rounds 3, 2 and 1 stay folded below (not drawn while closed).
+  const defense = mountDefenseRound4(main, () => updateBar());
   const defOld = document.createElement('details');
   defOld.className = 'old';
-  defOld.innerHTML = '<summary>Defensas · rondas 2 y 1</summary>';
+  defOld.innerHTML = '<summary>Defensas · rondas 3, 2 y 1</summary>';
   main.append(defOld);
+  const defense3 = mountDefenseRound3(defOld, () => updateBar());
   const defense2 = mountDefenseRound2(defOld, () => updateBar());
   const defense1 = mountDefenseSection(defOld, () => updateBar());
   // Threat avatars are done: all their rounds stay available, folded (and not drawn while closed).
@@ -211,6 +212,7 @@ function main(): void {
     const t = frozen !== null ? Number(frozen) : now / 1000;
     defense.draw(t);
     if (defOld.open) {
+      defense3.draw(t);
       defense2.draw(t);
       defense1.draw(t);
     }

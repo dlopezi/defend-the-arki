@@ -5,6 +5,7 @@ import type { G, Pick } from './avatarOptions';
 import { DEF_OPTIONS, type DefAnim, type DefBody, type DefItem } from './defenseOptions';
 import { DEF_OPTIONS_R2 } from './defenseOptions2';
 import { DEF_OPTIONS_R3 } from './defenseOptions3';
+import { DEF_OPTIONS_R4 } from './defenseOptions4';
 import { concept } from '../learn/concepts';
 import { drawLane, setupCanvas } from './pageKit';
 import { ensureRoundCss, type RoundSection } from './roundSection';
@@ -21,7 +22,7 @@ const ORDER: DefItem[] = [...DEFENSE_ORDER, 'rollback'];
 type Choice = Pick | 'keep';
 type Picks = Partial<Record<DefItem, Choice>>;
 type Version = 'v1' | 'v2' | 'both';
-type Options = Record<DefItem, Record<Pick, { name: string; body: DefBody; ref?: string }>>;
+type Options = Record<DefItem, Partial<Record<Pick, { name: string; body: DefBody; ref?: string }>>>;
 /** The design the user liked, shown in the small card instead of "Mantener actual". */
 type Base = { label: string; body: DefBody; noV2?: boolean };
 
@@ -34,6 +35,8 @@ interface DefRoundConfig {
   options: Options;
   versions: boolean;
   bases?: Partial<Record<DefItem, Base>>;
+  /** Options shown per defense (default A, B, C). */
+  picks?: Pick[];
   /** Show the real-world line ("En la vida real") in the info column. */
   realLife?: boolean;
 }
@@ -228,7 +231,9 @@ function drawScene(v: View, t: number, action: boolean, version: Version): void 
 
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-const css = `.round .opt .ref { font-size: 11px; line-height: 1.35; color: var(--muted); }`;
+const css = `.round .opt .ref { font-size: 11px; line-height: 1.35; color: var(--muted); }
+.round .row.pair { grid-template-columns: 190px repeat(2, 1fr); }
+@media (max-width: 820px) { .round .row.pair { grid-template-columns: 1fr 1fr; } }`;
 let cssAdded = false;
 
 function mountDefenseRound(container: HTMLElement, cfg: DefRoundConfig, onChange: () => void): RoundSection {
@@ -280,6 +285,8 @@ function mountDefenseRound(container: HTMLElement, cfg: DefRoundConfig, onChange
     return ta;
   };
 
+  const shown = cfg.picks ?? PICKS;
+  const picks2 = shown.length === 2;
   let action = false;
   let version: Version = cfg.versions ? 'both' : 'v1';
   const views: View[] = [];
@@ -346,7 +353,7 @@ function mountDefenseRound(container: HTMLElement, cfg: DefRoundConfig, onChange
   for (const item of ORDER) {
     const info = INFO[item];
     const row = document.createElement('div');
-    row.className = 'row';
+    row.className = picks2 ? 'row pair' : 'row';
     const col = document.createElement('div');
     col.className = 'info';
     const up = cfg.versions ? (info.upgrade ? `<span class="desc"><b style="color:#facc15">v2:</b> ${esc(info.upgrade)}</span>` : '<span class="desc">Sin v2 en el juego.</span>') : '';
@@ -356,7 +363,10 @@ function mountDefenseRound(container: HTMLElement, cfg: DefRoundConfig, onChange
     const base = cfg.bases?.[item];
     col.append(makeOpt(item, 'keep', base ? `Tu base: ${base.label}` : 'Mantener actual', base?.body ?? null, true, undefined, base?.noV2));
     row.append(col);
-    for (const p of PICKS) row.append(makeOpt(item, p, cfg.options[item][p].name, cfg.options[item][p].body, false, cfg.options[item][p].ref));
+    for (const p of shown) {
+      const o = cfg.options[item][p];
+      if (o) row.append(makeOpt(item, p, o.name, o.body, false, o.ref));
+    }
     section.append(row);
   }
 
@@ -364,7 +374,7 @@ function mountDefenseRound(container: HTMLElement, cfg: DefRoundConfig, onChange
     const c = picks[item];
     if (!c) return undefined;
     if (c === 'keep') return cfg.bases?.[item] ? `Base (${cfg.bases[item]?.label})` : 'Mantener actual';
-    return `${c} (${cfg.options[item][c].name})`;
+    return `${c} (${cfg.options[item][c]?.name ?? '?'})`;
   };
 
   return {
@@ -444,6 +454,25 @@ export function mountDefenseRound3(container: HTMLElement, onChange: () => void)
         waf: { label: 'Capas de filtros (ronda 2 B)', body: DEF_OPTIONS_R2.waf.B.body },
         rollback: { label: 'Teclas Ctrl + Z (ronda 2 B)', body: DEF_OPTIONS_R2.rollback.B.body },
       },
+    },
+    onChange,
+  );
+}
+
+export function mountDefenseRound4(container: HTMLElement, onChange: () => void): RoundSection {
+  return mountDefenseRound(
+    container,
+    {
+      key: 'system-defense:defense-picks-r4',
+      name: 'Defensas R4',
+      tag: 'Defensas · Ronda 4',
+      title: 'Estilo Design the Arki',
+      intro:
+        'Misma línea que Design the Arki: cada defensa es un edificio isométrico de un color sobre una base oscura. Load Balancer, Redis y Worker son los mismos edificios que en Arki. A es plano, como Arki; B es el mismo edificio con luces, sombras y brillo. La v2 añade la mejora como una pieza (2ª chimenea, 2ª barrera…) y un borde dorado en la base. Otro clic quita la selección.',
+      options: DEF_OPTIONS_R4,
+      picks: ['A', 'B'],
+      versions: true,
+      realLife: true,
     },
     onChange,
   );
