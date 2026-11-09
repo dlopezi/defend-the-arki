@@ -121,7 +121,7 @@ function requestBot(g: G, t: number, step: number, atk: number, color: string, l
   const legL = flat(shade(color, -0.45));
   legs(g, legL, -4, 0, step, 9);
   // arm that knocks
-  isoBlock(g, flat(shade(color, 0.15)), -20 - atk * 6, -20, 5, 3, 4);
+  isoBlock(g, flat(shade(color, 0.15)), -20 - atk * 12, -20 - atk * 3, 5 + atk * 6, 3, 4);
   const fx = -1;
   const fy = -8;
   const a = 20;
@@ -545,7 +545,7 @@ const sqli = (d: boolean): Body2 => (g, a) => {
   const A = 30;
   const B = 9;
   const H = 10;
-  const push = atk * 4;
+  const push = atk * 8;
   // plunger behind the barrel (toward the back right)
   const rx = fx + B / 2;
   const ry = fy - B / 4 - H / 2;
@@ -613,7 +613,7 @@ const ransomware = (d: boolean): Body2 => (g, a) => {
     }
   });
   // padlock in front
-  const sh = atk ? Math.sin(t * 40) * 1.2 : 0;
+  const sh = atk ? Math.sin(t * 40) * 2.5 : 0;
   g.strokeStyle = '#fecaca';
   g.lineWidth = 1.8;
   g.beginPath();
@@ -698,6 +698,49 @@ function mix(a: string, b: string, k: number): string {
   return `#${[1, 3, 5].map((i) => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k).toString(16).padStart(2, '0')).join('')}`;
 }
 
+/* ======================= attack ======================= */
+
+/** Flat impact star (no glow) where the threat hits the defense. */
+function impact(g: G, x: number, y: number, k: number): void {
+  g.save();
+  g.translate(x, y);
+  g.scale(0.6 + k * 0.6, 0.6 + k * 0.6);
+  g.globalAlpha = Math.min(1, k * 1.6);
+  const star: [number, number][] = [];
+  for (let i = 0; i < 16; i++) {
+    const r = i % 2 ? 3.5 : 9;
+    const ang = (i / 16) * TAU;
+    star.push([Math.cos(ang) * r, Math.sin(ang) * r]);
+  }
+  poly(g, star);
+  g.fillStyle = '#fde047';
+  g.fill();
+  g.lineWidth = 1;
+  g.strokeStyle = '#a16207';
+  g.stroke();
+  g.beginPath();
+  g.arc(0, 0, 3, 0, TAU);
+  g.fillStyle = '#ffffff';
+  g.fill();
+  g.restore();
+}
+
+/**
+ * Attack, the same for every threat: it rams toward the defense on its left (with a small
+ * squash) and a flat impact star shows the hit. Own moves (arm, plunger, lock…) come on top.
+ */
+const withAttack = (body: Body2): Body2 => (g, a) => {
+  const lunge = a.atk * 12;
+  g.save();
+  g.translate(-lunge, 0);
+  g.translate(0, a.h / 2);
+  g.scale(1 + a.atk * 0.08, 1 - a.atk * 0.08);
+  g.translate(0, -a.h / 2);
+  body(g, a);
+  g.restore();
+  if (a.atk > 0.35) impact(g, -a.w / 2 - lunge - 6, -a.h * 0.1, (a.atk - 0.35) / 0.65);
+};
+
 /* ======================= options table ======================= */
 
 type R5Threat = AvatarThreat;
@@ -715,7 +758,7 @@ const MAKERS: Record<R5Threat, (d: boolean) => Body2> = {
 };
 
 export const THREAT_OPTIONS_R5 = Object.fromEntries(
-  (Object.keys(MAKERS) as R5Threat[]).map((type) => [type, { A: { name: 'Plano', body: MAKERS[type](false) }, B: { name: 'Con más detalle', body: MAKERS[type](true) } }]),
+  (Object.keys(MAKERS) as R5Threat[]).map((type) => [type, { A: { name: 'Plano', body: withAttack(MAKERS[type](false)) }, B: { name: 'Con más detalle', body: withAttack(MAKERS[type](true)) } }]),
 ) as Record<R5Threat, { A: ThreatOptionR5; B: ThreatOptionR5 }>;
 
-export const BOTLET_R5: { A: Body2; B: Body2 } = { A: botlet(false), B: botlet(true) };
+export const BOTLET_R5: { A: Body2; B: Body2 } = { A: withAttack(botlet(false)), B: withAttack(botlet(true)) };
