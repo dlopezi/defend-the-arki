@@ -5,8 +5,9 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 
 - Juego estático: HTML + JS + CSS. **No hay servidor de juego ni base de datos.**
   Los récords y opciones se guardan en el navegador (localStorage).
+  La única salida a Internet es el formulario de **Feedback** (ver abajo).
 - Motor: TypeScript sin frameworks, patrón ECS, bucle fijo a 60 Hz, Canvas 2D.
-- Tamaño de producción: unos **54 kB comprimidos** con gzip (index.html + 1 JS + 1 CSS + icono), con los dos idiomas.
+- Tamaño de producción: unos **56 kB comprimidos** con gzip (index.html + 1 JS + 1 CSS + icono), con los dos idiomas.
 
 ## Idiomas
 
@@ -28,6 +29,31 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 - "Añadir a pantalla de inicio" (iPhone y Android) abre el juego sin las barras del navegador
   (`public/manifest.webmanifest` y los iconos de `public/icons/`).
 - Para ver los FPS en producción, abre la URL con `?debug`.
+
+## Feedback
+
+- Los jugadores escriben un mensaje (bugs, ideas, lo que sea) y llega por email al dueño.
+- Dónde está: botón **Feedback** en el menú de título, en el menú de pausa y
+  **Send feedback** en la pantalla de fin de partida.
+- Con el mensaje se envían datos técnicos: versión, idioma, nivel, ola, resultado,
+  navegador y tamaño de pantalla. No identifican a nadie. El formulario lo avisa en una línea.
+- El juego no tiene servidor: el envío lo hace [Web3Forms](https://web3forms.com)
+  (gratis, 250 mensajes al mes). Por eso la CSP permite `connect-src https://api.web3forms.com`.
+- La clave de Web3Forms está en `src/feedback.ts` (`WEB3FORMS_KEY`). **Es pública a propósito**:
+  viaja en el JS del juego y solo sirve para mandar correos al dueño. Si está vacía, el
+  formulario muestra "Could not send".
+- Anti-spam: un campo oculto que solo rellenan los bots, mensajes de 5 a 2000 caracteres
+  y un mensaje por minuto en cada navegador (`localStorage`, clave `defend-the-arki:feedback-sent`).
+- Mientras se escribe, las teclas del juego (1–8, P, F, M, Q, flechas) no hacen nada. Esc cierra.
+
+## Versiones
+
+- La versión sale de `package.json` y se ve abajo a la derecha de la pantalla de título.
+  También va en cada Feedback.
+- Para publicar una versión: subir `version` en `package.json` en una rama, llevarla a `main`,
+  y crear el tag y la Release en GitHub (`gh release create vX.Y.Z --generate-notes`).
+- Nivel nuevo o función nueva: sube el número del medio (1.0.0 → 1.1.0). Solo arreglos: el
+  último (1.1.0 → 1.1.1).
 
 ## Requisitos
 
@@ -146,7 +172,7 @@ docker run -d -p 8080:8080 --name system-defense system-defense:1.0.0
 Cabeceras de seguridad para todas las respuestas:
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.web3forms.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
 X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
 X-Frame-Options: DENY
@@ -162,6 +188,7 @@ Activa la compresión (gzip o brotli) en el hosting. Casi todos lo hacen solos.
 3. Abrir la URL de producción y comprobar:
    - pantalla de título → "Press to start" → menú; el switch **EN | ES** cambia todos los textos;
    - Play → Level 1 → colocar una defensa;
+   - Feedback → enviar un mensaje de prueba → llega al correo;
    - en un móvil: en horizontal se ve todo el tablero; en vertical sale "Turn your phone";
    - consola del navegador sin errores;
    - cabeceras: `curl -sI https://TU-DOMINIO/ | grep -i content-security`.
