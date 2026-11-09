@@ -6,6 +6,8 @@
 #   No service account key is created or stored anywhere.
 # - Only the `main` branch of this repository can deploy.
 # - Safe to run again: each step checks first and skips what already exists.
+# - After renaming the repository: run it again with the new REPO, then remove the old
+#   repository's workloadIdentityUser binding from the service account.
 #
 # Before running it:
 #   1. The GCP project exists (see README, "Despliegue").
@@ -18,7 +20,7 @@
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-defend-the-arki}"
-REPO="${REPO:-dlopezi/startupvsworld}"
+REPO="${REPO:-dlopezi/defend-the-arki}"
 BRANCH="${BRANCH:-main}"
 POOL="github"
 PROVIDER="github"
@@ -59,6 +61,11 @@ if ! gcloud iam workload-identity-pools providers describe "$PROVIDER" --workloa
     --issuer-uri="https://token.actions.githubusercontent.com" \
     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
     --attribute-condition="$CONDITION"
+else
+  # Keeps the rule in step with REPO / BRANCH (for example after a repository rename).
+  gcloud iam workload-identity-pools providers update-oidc "$PROVIDER" \
+    --workload-identity-pool="$POOL" --location=global --project "$PROJECT_ID" \
+    --attribute-condition="$CONDITION" >/dev/null
 fi
 
 step "Service account ${SA_EMAIL}"
