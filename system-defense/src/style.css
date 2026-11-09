@@ -10,9 +10,9 @@
   --bad: #f87171;
   --blue: #38bdf8;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  /* "+" cursor: white everywhere, cyan over things you can click (and the board). */
-  --cur: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z' fill='%23e2e8f0' stroke='%23020617' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair;
-  --cur-hot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8z' fill='%2338bdf8' stroke='%23020617' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='1.6' fill='%23020617'/%3E%3C/svg%3E") 12 12, pointer;
+  /* Hand cursor everywhere in the game (owner's choice). */
+  --cur: pointer;
+  --cur-hot: pointer;
   color-scheme: dark;
   cursor: var(--cur);
 }
