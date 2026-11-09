@@ -110,7 +110,7 @@ export function drawDefense(g: G, type: DefenseType, x: number, y: number, time:
   g.restore();
 }
 
-/** One-time Rollback (Ctrl + Z keys) waiting next to the base, or sweeping the lane. */
+/** One-time Rollback (sweeper truck with an undo arrow) waiting next to the base, or sweeping the lane. */
 export function drawRollback(g: G, x: number, y: number, running: boolean, time: number): void {
   g.save();
   g.translate(x, y);

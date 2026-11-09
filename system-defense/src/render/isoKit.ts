@@ -1,4 +1,4 @@
-import type { G } from './avatarOptions';
+import type { G } from './shapes';
 
 /*
  * Isometric drawing kit for the defense avatars of round 4, in the same style as the buildings

@@ -1,34 +1,16 @@
 import { TAU, txt, type G } from './avatarOptions';
 import type { Body2 } from './round2Options';
-import { band, ddos, hover, hoverPad, rect, requestBot, withAttack, type ThreatOptionR5 } from './threatOptionsR5';
+import { ENEMY_ART, hover, hoverPad, rect, ROUND6, withAttack } from '../render/enemyArt';
+import type { ThreatOptionR5 } from './threatOptionsR5';
 
 /*
  * Threat avatars, round 6 (from the comments on round 5, where A = flat was chosen for all):
- * - Black Friday: it did not read as a shopping cart. Two new carts: an open wire basket
- *   (you see the orders inside), wheels at the 4 corners and a push handle.
- * - SQL Injection: it did not read as a syringe. Two new syringes with the classic parts:
- *   needle, barrel with marks, finger grip, plunger and thumb rest.
- * - DDoS: 4 robots instead of 6.
- * Flat look (A of round 5). Each body is centered at (0, 0) with its feet on y = h/2.
+ * - Black Friday: two wire shopping carts (A, with the sign on a pole, is now in the game).
+ * - SQL Injection: two classic syringes (not chosen: the game keeps the round 5 syringe).
+ * - DDoS: 4 robots instead of 6 (now in the game).
  */
 
 type Pt = [number, number];
-const YELLOW = '#facc15';
-const YELLOW_DARK = '#a16207';
-
-/* ======================= DDoS: 4 robots ======================= */
-
-const ddos4: Body2 = withAttack(ddos(false, [[22, -6, 0.62], [-6, -12, 0.64], [16, 18, 0.68], [-14, 14, 0.72]]));
-
-/* ======================= Black Friday: wire cart ======================= */
-
-/**
- * Cart space: u runs along the cart (0 = nose on the left, grows to the handle on the right and back),
- * v across it, z up. The long side (v = 0) faces the viewer on the left, like the face of every threat.
- */
-function cartIso(ox: number, oy: number): (u: number, v: number, z: number) => Pt {
-  return (u, v, z) => [ox - (48 - u) + v, oy - (48 - u) * 0.5 - v * 0.5 - z];
-}
 
 function path(g: G, pts: Pt[], close = true): void {
   g.beginPath();
@@ -36,161 +18,9 @@ function path(g: G, pts: Pt[], close = true): void {
   if (close) g.closePath();
 }
 
-function strokeLine(g: G, a: Pt, b: Pt, color: string, lw: number): void {
-  g.strokeStyle = color;
-  g.lineWidth = lw;
-  g.beginPath();
-  g.moveTo(a[0], a[1]);
-  g.lineTo(b[0], b[1]);
-  g.stroke();
-}
-
-/** A caster wheel standing at a cart point. */
-function caster(g: G, [x, y]: Pt, r: number, t: number): void {
-  g.beginPath();
-  g.ellipse(x, y - r, r * 0.75, r, -0.45, 0, TAU);
-  g.fillStyle = '#111827';
-  g.fill();
-  g.lineWidth = 1.2;
-  g.strokeStyle = YELLOW;
-  g.stroke();
-  const ang = -t * 5;
-  strokeLine(g, [x, y - r], [x + Math.cos(ang) * r * 0.6, y - r + Math.sin(ang) * r * 0.8], YELLOW, 0.8);
-}
-
-interface CartOpts {
-  t: number;
-  atk: number;
-  /** Big hanging price tag (B) instead of the sign on a pole (A). */
-  tag: boolean;
-}
-
-function wireCart(g: G, h: number, o: CartOpts): void {
-  const { t, atk } = o;
-  const P = cartIso(14, h / 2);
-  // basket: bottom smaller than the top rim, nose lower than the back
-  const B = { u0: 8, u1: 42, v0: 2, v1: 24, z: 20 };
-  const T = { u0: 0, u1: 50, v0: 0, v1: 26, z: 52 };
-  const bot = (u: number, v: number): Pt => P(u, v, B.z);
-  const top = (u: number, v: number): Pt => P(u, v, T.z);
-  const lerp = (a: Pt, b: Pt, k: number): Pt => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
-
-  // wheels at the back first, then the frame under the basket
-  caster(g, P(B.u1, B.v1, 0), 4.5, t);
-  caster(g, P(B.u0, B.v1, 0), 4.5, t);
-  for (const [u, v] of [[B.u0, B.v0], [B.u1, B.v0], [B.u0, B.v1], [B.u1, B.v1]] as Pt[]) strokeLine(g, P(u, v, 9), P(u, v, B.z), YELLOW, 2);
-  path(g, [P(B.u0, B.v0, 9), P(B.u1, B.v0, 9), P(B.u1, B.v1, 9), P(B.u0, B.v1, 9)]);
-  g.strokeStyle = YELLOW;
-  g.lineWidth = 2;
-  g.stroke();
-
-  // far panels (back side and the handle end): dark, see-through
-  const far = (pts: Pt[]): void => {
-    path(g, pts);
-    g.fillStyle = 'rgba(15,23,42,0.85)';
-    g.fill();
-    g.strokeStyle = YELLOW_DARK;
-    g.lineWidth = 1;
-    g.stroke();
-  };
-  far([bot(B.u0, B.v1), bot(B.u1, B.v1), top(T.u1, T.v1), top(T.u0, T.v1)]);
-  far([bot(B.u1, B.v0), bot(B.u1, B.v1), top(T.u1, T.v1), top(T.u1, T.v0)]);
-  // basket floor
-  path(g, [bot(B.u0, B.v0), bot(B.u1, B.v0), bot(B.u1, B.v1), bot(B.u0, B.v1)]);
-  g.fillStyle = '#0f172a';
-  g.fill();
-
-  // the orders inside: request robots on a pile, the far ones first
-  const pile: [number, number, number][] = [
-    [14, 18, 30], [28, 18, 30], [40, 18, 30], [8, 9, 26], [22, 9, 26], [36, 9, 26],
-  ];
-  pile.forEach(([u, v, z], i) => {
-    const [x, y] = P(u, v, z);
-    g.save();
-    g.translate(x, y - atk * 4 + Math.sin(t * 6 + i) * 0.8);
-    g.scale(0.5, 0.5);
-    requestBot(g, t + i * 0.3, 0, 0, '#64748b', '#7dd3fc', '', i + 0.5, false);
-    g.restore();
-  });
-
-  // near panels: wire mesh you can see through
-  const mesh = (a0: Pt, a1: Pt, b0: Pt, b1: Pt, n: number): void => {
-    // a0-a1 = bottom edge, b0-b1 = top edge
-    path(g, [a0, a1, b1, b0]);
-    g.fillStyle = 'rgba(250,204,21,0.08)';
-    g.fill();
-    for (let i = 1; i < n; i++) strokeLine(g, lerp(a0, a1, i / n), lerp(b0, b1, i / n), 'rgba(250,204,21,0.55)', 0.8);
-    for (const k of [0.33, 0.66]) strokeLine(g, lerp(a0, b0, k), lerp(a1, b1, k), 'rgba(250,204,21,0.55)', 0.8);
-    path(g, [a0, a1, b1, b0]);
-    g.strokeStyle = YELLOW;
-    g.lineWidth = 1.6;
-    g.stroke();
-  };
-  mesh(bot(B.u0, B.v0), bot(B.u0, B.v1), top(T.u0, T.v0), top(T.u0, T.v1), 5);
-  mesh(bot(B.u0, B.v0), bot(B.u1, B.v0), top(T.u0, T.v0), top(T.u1, T.v0), 8);
-
-  // Tráfico band on the long side
-  const bl = lerp(bot(B.u0, B.v0), top(T.u0, T.v0), 0.42);
-  const br = lerp(bot(B.u1, B.v0), top(T.u1, T.v0), 0.42);
-  g.save();
-  g.translate(bl[0], bl[1]);
-  const len = Math.hypot(br[0] - bl[0], br[1] - bl[1]);
-  g.transform(1, (br[1] - bl[1]) / (br[0] - bl[0]), 0, 1, 0, 0);
-  band(g, len * 0.08, -4, len * 0.84, 8, 'BLACK FRIDAY', 5.4);
-  g.restore();
-
-  // front wheels
-  caster(g, P(B.u0, B.v0, 0), 4.5, t);
-  caster(g, P(B.u1, B.v0, 0), 4.5, t);
-
-  // push handle at the back: two bars up from the rim, and the grip across
-  const hz = T.z + 12;
-  const hu = T.u1 + 8;
-  strokeLine(g, top(T.u1, T.v0), P(hu, T.v0, hz), YELLOW, 2.2);
-  strokeLine(g, top(T.u1, T.v1), P(hu, T.v1, hz), YELLOW, 2.2);
-  strokeLine(g, P(hu, T.v0 - 2, hz), P(hu, T.v1 + 2, hz), '#dc2626', 4);
-
-  if (o.tag) {
-    // big price tag hanging from the grip on a string
-    const [sx, sy] = P(hu, T.v0 + 4, hz);
-    const swing = Math.sin(t * 2.5) * 0.12 - atk * 0.3;
-    g.save();
-    g.translate(sx, sy);
-    g.rotate(swing);
-    strokeLine(g, [0, 0], [0, 10], '#e5e7eb', 1);
-    g.translate(0, 10);
-    path(g, [[-8, 0], [8, 0], [14, 7], [14, 30], [-14, 30], [-14, 7]]);
-    g.fillStyle = '#dc2626';
-    g.fill();
-    g.strokeStyle = '#7f1d1d';
-    g.lineWidth = 1;
-    g.stroke();
-    g.beginPath();
-    g.arc(0, 5, 2, 0, TAU);
-    g.fillStyle = '#0b1220';
-    g.fill();
-    txt(g, '-70%', 0, 19, 9.5, '#ffffff', 900);
-    g.restore();
-  } else {
-    // sign on a pole, from the back corner of the rim
-    const base = top(T.u1, T.v1);
-    strokeLine(g, base, [base[0], base[1] - 30], YELLOW, 2.4);
-    g.save();
-    g.translate(base[0], base[1] - 30);
-    g.rotate(Math.sin(t * 2.5) * 0.06 - atk * 0.15);
-    path(g, [[-18, -20], [18, -20], [18, 0], [-18, 0]]);
-    g.fillStyle = '#dc2626';
-    g.fill();
-    g.strokeStyle = '#7f1d1d';
-    g.lineWidth = 1;
-    g.stroke();
-    txt(g, '-70%', 0, -10, 12, '#ffffff', 900);
-    g.restore();
-  }
-}
-
-const bfPole: Body2 = withAttack((g, a) => wireCart(g, a.h, { t: a.t, atk: a.atk, tag: false }));
-const bfTag: Body2 = withAttack((g, a) => wireCart(g, a.h, { t: a.t, atk: a.atk, tag: true }));
+const bfPole: Body2 = ROUND6.bfPole;
+const bfTag: Body2 = ROUND6.bfTag;
+const ddos4: Body2 = ENEMY_ART.ddos;
 
 /* ======================= SQL Injection: classic syringe ======================= */
 

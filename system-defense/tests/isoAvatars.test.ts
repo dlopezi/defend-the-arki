@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { shade } from '../src/dev/isoKit';
+import { shade } from '../src/render/isoKit';
 import { DEF_OPTIONS_R4 } from '../src/dev/defenseOptions4';
 import { BOTLET_R5, THREAT_OPTIONS_R5 } from '../src/dev/threatOptionsR5';
 import { THREAT_R6 } from '../src/dev/threatOptionsR6';
+import { DEFENSE_ART, rollbackArt } from '../src/render/defenseArt';
+import { ENEMY_ART } from '../src/render/enemyArt';
 
 describe('isoKit shade', () => {
   it('mixes a colour toward white with a positive amount', () => {
@@ -106,6 +108,35 @@ describe('threat avatars, round 6', () => {
       for (const atk of [0, 0.6]) {
         for (const t of [0, 0.4, 1.3, 2.9]) {
           expect(() => o.body(g, { w: 60, h: 70, t, step: atk ? 0 : Math.sin(t * 9), atk }), `${o.name} atk=${atk}`).not.toThrow();
+        }
+      }
+    }
+  });
+});
+
+describe('game art (the chosen avatars)', () => {
+  it('draws every defense in every state, and the Rollback, without errors', () => {
+    const g = fakeContext();
+    for (const [type, body] of Object.entries(DEFENSE_ART)) {
+      for (const level of [1, 2] as const) {
+        for (const t of [0, 0.4, 1.3]) {
+          const states = [
+            { t, kick: 0, charge: 0.2, hp: 1, ready: 1, busy: false, level },
+            { t, kick: 0.8, charge: 0.95, fuse: 0.2, hp: 0.2, ready: 0, busy: true, level },
+          ];
+          for (const s of states) expect(() => body(g, s), `${type} v${level}`).not.toThrow();
+        }
+      }
+    }
+    for (const running of [false, true]) expect(() => rollbackArt(g, running, 0.7)).not.toThrow();
+  });
+
+  it('draws every threat walking and attacking without errors', () => {
+    const g = fakeContext();
+    for (const [type, body] of Object.entries(ENEMY_ART)) {
+      for (const atk of [0, 0.7]) {
+        for (const t of [0, 0.4, 1.3, 2.9]) {
+          expect(() => body(g, { w: 50, h: 60, t, step: atk ? 0 : 0.5, atk }), `${type} atk=${atk}`).not.toThrow();
         }
       }
     }
