@@ -1,4 +1,4 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, type Mode } from '../config';
+import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, TOTAL_WAVES, type Mode } from '../config';
 import type { SoundName } from '../game/GameContext';
 import { clearRecords, describeRecord, loadRecords } from '../game/records';
 import { lang, setLang, t, type Lang } from '../i18n';
@@ -6,9 +6,10 @@ import { concept, type ConceptId } from '../learn/concepts';
 import { fitCanvas, loop } from './anim';
 import { drawArena } from './homeArena';
 import { HOWTO_STEPS, SCENE_H, SCENE_W } from './howtoScenes';
+import { mountFeedbackForm } from './FeedbackForm';
 import { drawConceptIcon } from './icons';
 
-export type HomeScreen = 'main' | 'levels' | 'guide' | 'howto' | 'options';
+export type HomeScreen = 'main' | 'levels' | 'guide' | 'howto' | 'options' | 'feedback';
 
 export interface HomeCallbacks {
   onStart(mode: Mode): void;
@@ -21,6 +22,15 @@ export interface HomeCallbacks {
   resetSeen(): void;
   openConcept(id: ConceptId): void;
   playSound(name: SoundName): void;
+}
+
+/** Public repository, linked from the title screen footer. */
+export const REPO_URL = 'https://github.com/dlopezi/defend-the-arki';
+
+/** Version (to its GitHub Release), source link and copyright, for the title screen footer. */
+export function creditsLine(version: string): string {
+  const out = 'target="_blank" rel="noopener noreferrer"';
+  return `<span class="credits"><a href="${REPO_URL}/releases/tag/v${version}" ${out}>v${version}</a> · <a href="${REPO_URL}" ${out}>GitHub ↗</a> · © 2026 thearki</span>`;
 }
 
 /** "Press start" was already passed in this browser tab. */
@@ -46,6 +56,8 @@ function screenTitle(screen: Exclude<HomeScreen, 'main'>): string {
       return t('How to play', 'Cómo jugar');
     case 'options':
       return t('Options', 'Opciones');
+    case 'feedback':
+      return 'Feedback';
   }
 }
 
@@ -66,7 +78,7 @@ function esc(text: string): string {
 
 /**
  * Start view, organized like a game menu:
- * main title screen -> Play (levels) · Guide (codex) · How to play · Options.
+ * main title screen -> Play (levels) · Guide (codex) · How to play · Options · Feedback.
  */
 export class HomeMenu {
   readonly el: HTMLElement;
@@ -147,6 +159,20 @@ export class HomeMenu {
   private render(): void {
     const body = this.screen === 'main' ? this.mainScreen() : this.subScreen(this.screen);
     this.el.innerHTML = `<div class="panel home-panel screen-${this.screen}">${body}</div>`;
+    const feedback = this.el.querySelector<HTMLElement>('.feedback-host');
+    if (feedback) {
+      mountFeedbackForm(feedback, {
+        getGameInfo: () => {
+          // A game left paused with "Menu" is the one the player talks about.
+          const s = this.cb.getSuspended();
+          if (!s) return { level: 'none' };
+          const spec = MODES[s.mode];
+          return { level: `Level ${spec.level} · ${spec.name}`, wave: `${s.wave}/${TOTAL_WAVES}` };
+        },
+        doneLabel: t('Back to the menu', 'Volver al menú'),
+        onDone: () => this.show('main'),
+      });
+    }
     this.bind();
     this.animate();
   }
@@ -207,6 +233,7 @@ export class HomeMenu {
       ['guide', t('Guide', 'Guía'), ''],
       ['howto', t('How to play', 'Cómo jugar'), ''],
       ['options', t('Options', 'Opciones'), ''],
+      ['feedback', 'Feedback', ''],
     ];
     const menu = items
       .map(
@@ -232,7 +259,7 @@ export class HomeMenu {
         <span class="foot-right">
           ${langSwitch()}
           <button class="icon-btn" data-opt="quickSound" type="button" aria-pressed="${!muted}">${soundLabel(muted)}</button>
-          <span class="ver">v${__APP_VERSION__}</span>
+          ${creditsLine(__APP_VERSION__)}
         </span>
       </footer>`;
   }
@@ -274,6 +301,9 @@ export class HomeMenu {
         break;
       case 'options':
         content = this.optionsScreen();
+        break;
+      case 'feedback':
+        content = '<div class="feedback-host"></div>';
         break;
     }
     return `
@@ -385,7 +415,7 @@ export class HomeMenu {
     // "Press to start": a click anywhere on the title screen also starts.
     if (this.screen === 'main' && !this.started) {
       this.el.querySelector('.home-panel')?.addEventListener('click', (e) => {
-        if (!(e.target as Element).closest('button')) this.pressStart();
+        if (!(e.target as Element).closest('button, a')) this.pressStart();
       });
     }
     this.el.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => {

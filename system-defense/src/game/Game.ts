@@ -1,6 +1,6 @@
 import { Sfx } from '../audio/Sfx';
 import { onLangChange, t } from '../i18n';
-import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, type Mode, type Tool } from '../config';
+import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, TOTAL_WAVES, type Mode, type Tool } from '../config';
 import { World } from '../ecs/World';
 import { RenderSystem } from '../render/RenderSystem';
 import { Hud } from '../ui/Hud';
@@ -65,6 +65,12 @@ export class Game {
       playSound: (name) => {
         this.sfx.unlock();
         this.sfx.play(name);
+      },
+      getGameInfo: () => {
+        const ctx = this.ctx;
+        const spec = MODES[ctx.mode];
+        const result = ctx.status === 'victory' ? 'won' : ctx.status === 'gameover' ? 'lost' : undefined;
+        return { level: `Level ${spec.level} · ${spec.name}`, wave: `${ctx.wave.number}/${TOTAL_WAVES}`, result };
       },
     });
 
@@ -337,6 +343,16 @@ export class Game {
       if (e.repeat) return;
       this.sfx.unlock();
       const key = e.key.toLowerCase();
+      // Typing in a text field (Feedback): game and menu keys are off; Esc still goes back.
+      const typing = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
+      if (this.overlays.feedbackOpen) {
+        if (key === 'escape') {
+          e.preventDefault();
+          this.overlays.closeFeedback();
+        }
+        return;
+      }
+      if (typing && key !== 'escape') return;
       if (this.overlays.conceptOpen) {
         if (key === 'enter' || key === 'escape') {
           e.preventDefault();
