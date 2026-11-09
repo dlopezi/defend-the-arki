@@ -24,6 +24,15 @@ export interface HomeCallbacks {
   playSound(name: SoundName): void;
 }
 
+/** Public repository, linked from the title screen footer. */
+export const REPO_URL = 'https://github.com/dlopezi/defend-the-arki';
+
+/** Version (to its GitHub Release), source link and copyright, for the title screen footer. */
+export function creditsLine(version: string): string {
+  const out = 'target="_blank" rel="noopener noreferrer"';
+  return `<span class="credits"><a href="${REPO_URL}/releases/tag/v${version}" ${out}>v${version}</a> · <a href="${REPO_URL}" ${out}>GitHub ↗</a> · © 2026 thearki</span>`;
+}
+
 /** "Press start" was already passed in this browser tab. */
 const STARTED_KEY = 'defend-the-arki:started';
 function readStarted(): boolean {
@@ -250,7 +259,7 @@ export class HomeMenu {
         <span class="foot-right">
           ${langSwitch()}
           <button class="icon-btn" data-opt="quickSound" type="button" aria-pressed="${!muted}">${soundLabel(muted)}</button>
-          <span class="ver">v${__APP_VERSION__}</span>
+          ${creditsLine(__APP_VERSION__)}
         </span>
       </footer>`;
   }
@@ -406,7 +415,7 @@ export class HomeMenu {
     // "Press to start": a click anywhere on the title screen also starts.
     if (this.screen === 'main' && !this.started) {
       this.el.querySelector('.home-panel')?.addEventListener('click', (e) => {
-        if (!(e.target as Element).closest('button')) this.pressStart();
+        if (!(e.target as Element).closest('button, a')) this.pressStart();
       });
     }
     this.el.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => {
