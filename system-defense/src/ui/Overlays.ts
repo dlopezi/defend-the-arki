@@ -3,6 +3,7 @@ import type { GameContext, SoundName } from '../game/GameContext';
 import { onLangChange, t } from '../i18n';
 import { concept, type ConceptId, type Link } from '../learn/concepts';
 import { cause, describeIncident, levelLessonLoss, levelLessonWin, topDefenses } from '../learn/postmortem';
+import { focusFeedback, mountFeedbackForm, type FeedbackGameInfo } from './FeedbackForm';
 import { HomeMenu } from './HomeMenu';
 import { loop } from './anim';
 import { drawConceptIcon, paintConceptIcon } from './icons';
@@ -20,9 +21,11 @@ export interface OverlayCallbacks {
   toggleMute(): void;
   resetSeen(): void;
   playSound(name: SoundName): void;
+  /** Level, wave and result of the current game, for Feedback. */
+  getGameInfo(): FeedbackGameInfo;
 }
 
-type Screen = 'menu' | 'pause' | 'end' | 'concept' | 'none';
+type Screen = 'menu' | 'pause' | 'end' | 'concept' | 'feedback' | 'none';
 
 function fmtTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -41,7 +44,7 @@ function link(l: Link): string {
 /**
  * Screens.
  * - `home`: start view, shown instead of the HUD and board.
- * - `root`: pause and end screens, drawn over the board.
+ * - `root`: pause, end and Feedback screens, drawn over the board.
  * - `concept`: concept card, fixed over the whole page (works in both views).
  */
 export class Overlays {
@@ -51,6 +54,9 @@ export class Overlays {
   private readonly homeMenu: HomeMenu;
   private readonly pause: HTMLElement;
   private readonly end: HTMLElement;
+  private readonly feedback: HTMLElement;
+  /** Screen to go back to when Feedback closes (pause or end), or null when closed. */
+  private feedbackReturn: 'pause' | 'end' | null = null;
   private readonly cb: OverlayCallbacks;
   private conceptClose: (() => void) | null = null;
 
@@ -82,17 +88,54 @@ export class Overlays {
     this.end = document.createElement('section');
     this.end.className = 'overlay end';
 
+    this.feedback = document.createElement('section');
+    this.feedback.className = 'overlay feedback-overlay';
+
     this.concept = document.createElement('section');
     this.concept.className = 'overlay concept';
 
-    this.root.append(this.pause, this.end);
+    this.root.append(this.pause, this.end, this.feedback);
     this.show('menu');
   }
 
   private renderPause(): void {
-    this.pause.innerHTML = `<div class="panel small"><h2>${t('Paused', 'Pausa')}</h2><p>${t('The update loop is stopped.', 'El bucle de actualización está detenido.')}</p><div class="row"><button class="btn primary" data-act="resume" type="button">${t('Resume', 'Seguir')}</button><button class="btn" data-act="menu" type="button">${t('Menu', 'Menú')}</button></div></div>`;
+    this.pause.innerHTML = `<div class="panel small"><h2>${t('Paused', 'Pausa')}</h2><p>${t('The update loop is stopped.', 'El bucle de actualización está detenido.')}</p><div class="row"><button class="btn primary" data-act="resume" type="button">${t('Resume', 'Seguir')}</button><button class="btn" data-act="menu" type="button">${t('Menu', 'Menú')}</button><button class="btn" data-act="feedback" type="button">Feedback</button></div></div>`;
     this.pause.querySelector('[data-act="resume"]')?.addEventListener('click', () => this.cb.onResume());
     this.pause.querySelector('[data-act="menu"]')?.addEventListener('click', () => this.cb.onMenu());
+    this.pause.querySelector('[data-act="feedback"]')?.addEventListener('click', () => this.openFeedback('pause'));
+  }
+
+  /* ---------- Feedback (from the pause and end screens) ---------- */
+
+  get feedbackOpen(): boolean {
+    return this.feedbackReturn !== null;
+  }
+
+  /** Opens the Feedback form over the board. The game stays paused or ended. */
+  openFeedback(from: 'pause' | 'end'): void {
+    this.feedback.innerHTML = `
+      <div class="panel small feedback-panel" role="dialog" aria-labelledby="feedback-title">
+        <div class="feedback-head">
+          <h2 id="feedback-title">Feedback</h2>
+          <button class="btn" data-act="close" type="button">${t('Close', 'Cerrar')}</button>
+        </div>
+        <div class="feedback-host"></div>
+      </div>`;
+    mountFeedbackForm(this.feedback.querySelector<HTMLElement>('.feedback-host')!, {
+      getGameInfo: () => this.cb.getGameInfo(),
+      doneLabel: t('Close', 'Cerrar'),
+      onDone: () => this.closeFeedback(),
+    });
+    this.feedback.querySelector('[data-act="close"]')?.addEventListener('click', () => this.closeFeedback());
+    this.show('feedback');
+    this.feedbackReturn = from;
+    focusFeedback(this.feedback);
+  }
+
+  closeFeedback(): void {
+    const back = this.feedbackReturn;
+    if (!back) return;
+    this.show(back);
   }
 
   /** A key pressed on the home view (menu navigation). Returns true if it was used. */
@@ -110,7 +153,9 @@ export class Overlays {
     this.pause.classList.toggle('visible', which === 'pause');
     this.end.classList.toggle('visible', which === 'end');
     this.concept.classList.toggle('visible', which === 'concept');
+    this.feedback.classList.toggle('visible', which === 'feedback');
     if (which !== 'concept') this.conceptClose = null;
+    if (which !== 'feedback') this.feedbackReturn = null;
   }
 
   /* ---------- Concept card ---------- */
@@ -205,11 +250,13 @@ export class Overlays {
           <button class="btn primary" data-act="retry" type="button">${t('Retry', 'Reintentar')}</button>
           ${nextBtn}
           <button class="btn" data-act="menu" type="button">${t('Menu', 'Menú')}</button>
+          <button class="btn" data-act="feedback" type="button">${t('Send feedback', 'Enviar feedback')}</button>
         </div>
       </div>`;
     this.end.querySelector('[data-act="retry"]')?.addEventListener('click', () => this.cb.onStart(ctx.mode));
     if (nextMode) this.end.querySelector('[data-act="next"]')?.addEventListener('click', () => this.cb.onStart(nextMode));
     this.end.querySelector('[data-act="menu"]')?.addEventListener('click', () => this.cb.onMenu());
+    this.end.querySelector('[data-act="feedback"]')?.addEventListener('click', () => this.openFeedback('end'));
     this.show('end');
     this.end.scrollTop = 0;
   }

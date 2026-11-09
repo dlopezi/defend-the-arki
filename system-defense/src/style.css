@@ -1591,3 +1591,88 @@ button {
     padding: 6px 14px;
   }
 }
+
+/* ---------- Feedback (title menu screen, and over the game from pause / end) ---------- */
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.feedback-intro {
+  margin: 0;
+  font-size: 15px;
+}
+.feedback textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 10px 12px;
+  font: 14px/1.45 system-ui, sans-serif;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  resize: vertical;
+  cursor: text;
+}
+.feedback textarea:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+/* Trap for bots: off screen, people never see it. */
+.feedback-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.feedback-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.feedback-count {
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+.feedback-status {
+  min-height: 1em;
+  margin: 0;
+  font-size: 14px;
+}
+.feedback-status:empty {
+  display: none;
+}
+.feedback-status.warn {
+  color: #fbbf24;
+}
+.feedback-status.ok {
+  color: var(--ok);
+}
+.feedback-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.feedback-panel {
+  width: min(560px, 100%);
+  text-align: left;
+}
+.feedback-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.feedback-head h2 {
+  margin: 0;
+}
+@media (max-height: 500px) {
+  .feedback textarea {
+    min-height: 70px;
+  }
+}

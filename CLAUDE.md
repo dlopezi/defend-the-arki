@@ -14,11 +14,11 @@
 
 ### Issue tracker
 
-Issues and specs live as local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+Issues and specs live in GitHub Issues (`gh` CLI). Player Feedback arrives by email and is copied into Issues. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-The five default triage roles, written as a `Status:` line in each issue file. See `docs/agents/triage-labels.md`.
+The five default triage roles, as GitHub labels. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

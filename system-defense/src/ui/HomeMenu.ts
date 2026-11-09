@@ -1,4 +1,4 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, type Mode } from '../config';
+import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, TOTAL_WAVES, type Mode } from '../config';
 import type { SoundName } from '../game/GameContext';
 import { clearRecords, describeRecord, loadRecords } from '../game/records';
 import { lang, setLang, t, type Lang } from '../i18n';
@@ -6,9 +6,10 @@ import { concept, type ConceptId } from '../learn/concepts';
 import { fitCanvas, loop } from './anim';
 import { drawArena } from './homeArena';
 import { HOWTO_STEPS, SCENE_H, SCENE_W } from './howtoScenes';
+import { mountFeedbackForm } from './FeedbackForm';
 import { drawConceptIcon } from './icons';
 
-export type HomeScreen = 'main' | 'levels' | 'guide' | 'howto' | 'options';
+export type HomeScreen = 'main' | 'levels' | 'guide' | 'howto' | 'options' | 'feedback';
 
 export interface HomeCallbacks {
   onStart(mode: Mode): void;
@@ -46,6 +47,8 @@ function screenTitle(screen: Exclude<HomeScreen, 'main'>): string {
       return t('How to play', 'Cómo jugar');
     case 'options':
       return t('Options', 'Opciones');
+    case 'feedback':
+      return 'Feedback';
   }
 }
 
@@ -66,7 +69,7 @@ function esc(text: string): string {
 
 /**
  * Start view, organized like a game menu:
- * main title screen -> Play (levels) · Guide (codex) · How to play · Options.
+ * main title screen -> Play (levels) · Guide (codex) · How to play · Options · Feedback.
  */
 export class HomeMenu {
   readonly el: HTMLElement;
@@ -147,6 +150,20 @@ export class HomeMenu {
   private render(): void {
     const body = this.screen === 'main' ? this.mainScreen() : this.subScreen(this.screen);
     this.el.innerHTML = `<div class="panel home-panel screen-${this.screen}">${body}</div>`;
+    const feedback = this.el.querySelector<HTMLElement>('.feedback-host');
+    if (feedback) {
+      mountFeedbackForm(feedback, {
+        getGameInfo: () => {
+          // A game left paused with "Menu" is the one the player talks about.
+          const s = this.cb.getSuspended();
+          if (!s) return { level: 'none' };
+          const spec = MODES[s.mode];
+          return { level: `Level ${spec.level} · ${spec.name}`, wave: `${s.wave}/${TOTAL_WAVES}` };
+        },
+        doneLabel: t('Back to the menu', 'Volver al menú'),
+        onDone: () => this.show('main'),
+      });
+    }
     this.bind();
     this.animate();
   }
@@ -207,6 +224,7 @@ export class HomeMenu {
       ['guide', t('Guide', 'Guía'), ''],
       ['howto', t('How to play', 'Cómo jugar'), ''],
       ['options', t('Options', 'Opciones'), ''],
+      ['feedback', 'Feedback', ''],
     ];
     const menu = items
       .map(
@@ -274,6 +292,9 @@ export class HomeMenu {
         break;
       case 'options':
         content = this.optionsScreen();
+        break;
+      case 'feedback':
+        content = '<div class="feedback-host"></div>';
         break;
     }
     return `
