@@ -41,6 +41,7 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 | `npm install` | Instala las dependencias (solo herramientas de desarrollo). |
 | `npm run dev` | Juego en modo desarrollo: http://localhost:5173 |
 | `npm test` | Todas las pruebas automáticas (unos 12 s). |
+| `npm run test:soak` | Solo las partidas del bot, con su tabla de resultados por nivel. |
 | `npm run check` | Tipos + pruebas + build. **Ejecútalo antes de cada despliegue.** |
 | `npm run build` | Build de producción en `dist/` (y archivos `.gz` ya comprimidos). |
 | `npm run preview` | Sirve `dist/` con las mismas cabeceras de seguridad que producción: http://localhost:4173 |
@@ -48,7 +49,7 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 
 ## Pruebas
 
-`npm test` ejecuta 40 pruebas sobre el motor real (sin pantalla):
+`npm test` ejecuta todas las pruebas sobre el motor real (sin pantalla). El número exacto lo da `npm test`:
 
 - **Reglas del juego** (`tests/rules.test.ts`): costes de las defensas, CU del Worker y del cielo,
   Load Balancer, Rate Limiter (−50 %), Circuit Breaker (3×3 tras 1 s), Redis como muro,
@@ -57,8 +58,10 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
   cada nivel (Monolito, Microservicios con Rollback, Kubernetes que se reinicia a los 30 s, victoria).
 - **Básicas** (`tests/core.test.ts`): mundo ECS, configuración, olas cada vez más difíciles,
   Black Friday en las olas 5, 8 y 10, y que cada elemento tenga dibujo y ficha.
-- **Partidas completas y carga** (`tests/soak.test.ts`): un bot juega 9 partidas enteras
-  (3 niveles × 3 semillas, una en modo "caos" con clics al azar). Comprueba que no hay errores,
+- **Idiomas** (`tests/i18n.test.ts`): falla si un texto en español de `src/` no está dentro de
+  `t('English', 'Español')` o de una tabla en español (`const ES` o clave `es`).
+- **Partidas completas y carga** (`tests/soak.test.ts`): un bot juega partidas enteras
+  (3 semillas por nivel, una en modo "caos" con clics al azar). `npm run test:soak` muestra la tabla. Comprueba que no hay errores,
   ni valores NaN, ni fugas de entidades. Otra prueba mantiene **500 amenazas + 45 defensas**
   y mide el tiempo de cada paso del motor.
 
@@ -66,8 +69,8 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 
 | Prueba | Resultado |
 |---|---|
-| 40 pruebas automáticas | ✅ todas pasan |
-| 9 partidas completas del bot | 8 victorias, 1 derrota en la ola 10 (Monolito). 0 errores. Máx. ~240 entidades |
+| Pruebas automáticas | ✅ todas pasan |
+| Partidas completas del bot (3 niveles × 3 semillas) | 8 victorias, 1 derrota en la ola 10 (Monolito). 0 errores. Máx. ~240 entidades |
 | Motor con 500 amenazas + 45 defensas | 0,5 ms por paso de media, 0,9 ms p99 (presupuesto: 16,7 ms) |
 | Navegador con 300 amenazas + 45 defensas | 60 FPS estables, peor frame 18,7 ms |
 | Memoria en el navegador (40 s bajo carga) | estable en ~23 MB (sin fugas) |

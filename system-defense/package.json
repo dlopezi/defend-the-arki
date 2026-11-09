@@ -8,6 +8,7 @@
     "typecheck": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:soak": "vitest run tests/soak.test.ts --silent=false",
     "build": "tsc && vite build && node scripts/compress.mjs",
     "preview": "vite preview",
     "check": "npm run typecheck && npm run test && npm run build",

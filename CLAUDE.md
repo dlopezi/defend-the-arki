@@ -6,6 +6,10 @@
 - To publish, open a Pull Request from `develop` to `main` and merge it on GitHub, only when the user asks.
 - A local `pre-push` hook blocks pushes to `main` (GitHub branch protection is not available on this plan).
 
+## Pointers
+
+- Levels: read `docs/agents/adding-a-level.md` before adding or changing a level.
+
 ## Agent skills
 
 ### Issue tracker

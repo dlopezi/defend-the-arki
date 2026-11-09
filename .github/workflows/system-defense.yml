@@ -23,7 +23,7 @@ jobs:
           cache: npm
           cache-dependency-path: system-defense/package-lock.json
       - run: npm ci
-      # types + 40 tests (rules, full games, engine load) + production build
+      # types + all tests (rules, languages, full games, engine load) + production build
       - run: npm run check
       - name: HTTP load test on the production build
         run: |
