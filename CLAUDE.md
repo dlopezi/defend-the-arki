@@ -5,6 +5,7 @@
 - A feature goes back by Pull Request: `gh pr create --base develop`.
 - To publish, open a Pull Request from `develop` to `main` and merge it on GitHub, only when the user asks.
 - `main` is protected on GitHub (ruleset "Protect main"): only Pull Requests, the `check` and `docker` jobs must pass, no force-push, no delete. The admin can skip the checks only when merging a PR (for PRs that change no game files, where CI does not run). A local `pre-push` hook also blocks pushes to `main`.
+- `develop` has a ruleset "Keep develop" (no delete, no force-push), because the repo deletes merged branches and the release PR merges `develop`.
 
 ## Pointers
 
