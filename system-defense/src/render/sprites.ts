@@ -1,4 +1,4 @@
-import type { DefenseType, EnemyType } from '../config';
+import { CELL_H, type DefenseType, type EnemyType } from '../config';
 import type { EnemyState } from '../components';
 import { DEFENSE_ART, rollbackArt } from './defenseArt';
 import { attackPulse, ENEMY_ART } from './enemyArt';
@@ -143,27 +143,31 @@ export function drawEnemy(g: G, type: EnemyType, x: number, y: number, w: number
   // each enemy hits on its own beat
   const atk = o.state === 'attack' ? attackPulse(time + x * 0.01) : 0;
 
+  // feet line: h/2, but never below the lane's ground (Black Friday is taller than a lane)
+  const ground = Math.min(h / 2, CELL_H / 2 - 10);
   g.save();
   g.translate(x, y);
   // ground shadow stays on the ground while jumping
   g.fillStyle = 'rgba(0,0,0,0.35)';
   g.beginPath();
-  g.ellipse(0, h / 2 + 2, w * 0.45 * (1 - o.jumpHeight / 160), 6, 0, 0, TAU);
+  g.ellipse(0, ground + 2, w * 0.45 * (1 - o.jumpHeight / 160), 6, 0, 0, TAU);
   g.fill();
   g.translate(0, step * 2 - o.jumpHeight);
   // lean forward around the feet when hitting; tilt up while jumping
-  g.translate(0, h / 2);
+  g.translate(0, ground);
   g.rotate(o.state === 'jump' ? -0.25 : -0.08 * atk);
-  g.translate(0, -h / 2);
+  g.translate(0, -ground);
   g.save();
   ENEMY_ART[type](g, { w, h, t: time, step, atk });
   g.restore();
 
+  // overlays (Kafka hold, 429, hit flash) stay inside the lane, also for the tall Black Friday
+  const oh = Math.min(h, CELL_H - 8);
   if (o.held !== undefined) {
     g.strokeStyle = '#fb923c';
     g.lineWidth = 3;
     const bx = w / 2 + 5;
-    const by = h / 2 + 3;
+    const by = oh / 2 + 3;
     g.beginPath();
     g.moveTo(-bx + 8, -by);
     g.lineTo(-bx, -by);
@@ -182,15 +186,15 @@ export function drawEnemy(g: G, type: EnemyType, x: number, y: number, w: number
 
   if (o.slowed) {
     g.globalAlpha = 0.3;
-    rr(g, -w / 2 - 2, -h / 2 - 2, w + 4, h + 4, 10);
+    rr(g, -w / 2 - 2, -oh / 2 - 2, w + 4, oh + 4, 10);
     g.fillStyle = '#60a5fa';
     g.fill();
     g.globalAlpha = 1;
-    label(g, '429', w / 2 - 4, -h / 2 - 4, 9, '#bfdbfe');
+    label(g, '429', w / 2 - 4, -oh / 2 - 4, 9, '#bfdbfe');
   }
   if (o.flash > 0) {
     g.globalAlpha = Math.min(0.6, o.flash * 6);
-    rr(g, -w / 2, -h / 2, w, h, 10);
+    rr(g, -w / 2, -oh / 2, w, oh, 10);
     g.fillStyle = '#ffffff';
     g.fill();
     g.globalAlpha = 1;

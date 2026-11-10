@@ -1,4 +1,4 @@
-import { CANVAS_W, laneY, ZERO_DAY_SPEED_AFTER_JUMP } from '../config';
+import { GRID_RIGHT, laneY, ZERO_DAY_SPEED_AFTER_JUMP } from '../config';
 import type { System } from '../ecs/System';
 import { spawnSparks } from '../game/factories';
 
@@ -38,7 +38,8 @@ export const MovementSystem: System = {
         const step = LANE_SHIFT_SPEED * dt;
         t.y = Math.abs(ty - t.y) <= step ? ty : t.y + Math.sign(ty - t.y) * step;
       }
-      if (t.x > CANVAS_W + 30) world.destroy(e);
+      // packets stop at the board edge: threats in the incoming strip cannot be hit
+      if (t.x > GRID_RIGHT) world.destroy(e);
     }
   },
 };

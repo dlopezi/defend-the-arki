@@ -17,7 +17,7 @@ export interface Anim {
 }
 export type Body = (g: G, a: Anim) => void;
 export type Pick = 'A' | 'B' | 'C';
-export type AvatarThreat = Exclude<EnemyType, 'botlet'>;
+export type AvatarThreat = Exclude<EnemyType, 'botlet' | 'fakeRequest'>;
 
 export const TAU = Math.PI * 2;
 export const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';

@@ -16,6 +16,8 @@ export const CANVAS_H = GRID_Y + LANES * CELL_H;
 export const BREACH_X = GRID_X - 18;
 /** Where an unused Rollback waits (between the base and the grid). */
 export const ROLLBACK_X = GRID_X - 22;
+/** A threat is on the board (it can be shot and hit) once its front edge passes the right edge of the grid. */
+export const onBoard = (x: number, width: number): boolean => x - width / 2 <= GRID_RIGHT;
 
 export const FIXED_DT = 1 / 60;
 export const START_CU = 150;
@@ -276,6 +278,7 @@ export type EnemyType =
   | 'sqli'
   | 'botnet'
   | 'botlet'
+  | 'fakeRequest'
   | 'slowloris'
   | 'ransomware'
   | 'memoryLeak';
@@ -296,18 +299,19 @@ export interface EnemySpec {
 export const ENEMIES: Record<EnemyType, EnemySpec> = {
   normal: { get name() { return t('Normal Traffic', 'Tráfico Normal'); }, tag: 'GET', color: '#94a3b8', hp: 120, speed: 20, dps: 40, width: 44, height: 56, get desc() { return t('Medium speed, low health', 'Velocidad media, poca vida'); } },
   scraper: { name: 'Scraper Bot', tag: 'BOT', color: '#fb923c', hp: 320, speed: 20, dps: 40, width: 50, height: 62, get desc() { return t('Medium speed, medium-high health', 'Velocidad media, vida media-alta'); } },
-  ddos: { get name() { return t('DDoS Attack', 'Ataque DDoS'); }, tag: 'DDoS', color: '#ef4444', hp: 1000, speed: 10, dps: 70, width: 74, height: 74, get desc() { return t('Slow, very high health', 'Lento, vida muy alta'); } },
+  ddos: { get name() { return t('DDoS Attack', 'Ataque DDoS'); }, tag: 'DDoS', color: '#ef4444', hp: 1000, speed: 10, dps: 70, width: 74, height: 74, get desc() { return t('Slow, very high health. Splits into 4 fake requests when it dies', 'Lento, vida muy alta. Al morir se divide en 4 peticiones falsas'); } },
   zeroDay: { name: 'Zero-Day Exploit', tag: '0day', color: '#e879f9', hp: 160, speed: 48, dps: 40, width: 42, height: 54, get desc() { return t('Fast. Jumps over the first defense (not the WAF)', 'Rápido. Salta la primera defensa (no el WAF)'); } },
-  blackFriday: { name: 'Black Friday Traffic', tag: 'BF', color: '#facc15', hp: 5000, speed: 5, dps: 0, width: 110, height: 120, get desc() { return t('Boss. Destroys defenses in one hit', 'Jefe. Destruye defensas de un golpe'); } },
+  blackFriday: { name: 'Black Friday Traffic', tag: 'BF', color: '#facc15', hp: 5000, speed: 5, dps: 0, width: 110, height: 120, get desc() { return t('Boss. Destroys defenses in one hit. Splits into 6 Normal Traffic when it dies', 'Jefe. Destruye defensas de un golpe. Al morir se divide en 6 Tráfico Normal'); } },
   sqli: { name: 'SQL Injection', tag: 'SQLi', color: '#84cc16', hp: 200, speed: 24, dps: 40, width: 44, height: 54, get desc() { return t('Goes through Redis (cache miss). The WAF stops it', 'Atraviesa Redis (cache miss). El WAF lo frena'); } },
   botnet: { name: 'Botnet', tag: 'Botnet', color: '#f59e0b', hp: 420, speed: 18, dps: 40, width: 62, height: 58, get desc() { return t('Splits into 3 bots when it dies', 'Al morir se divide en 3 bots'); } },
   botlet: { get name() { return t('Botnet bot', 'Bot de botnet'); }, tag: 'bot', color: '#fbbf24', hp: 60, speed: 32, dps: 20, width: 26, height: 30, get desc() { return t('Small, fast bot', 'Bot pequeño y rápido'); } },
+  fakeRequest: { get name() { return t('Fake request', 'Petición falsa'); }, tag: 'fake', color: '#ef4444', hp: 60, speed: 32, dps: 20, width: 28, height: 32, get desc() { return t('Small, fast fake traffic left by a DDoS', 'Tráfico falso pequeño y rápido que deja un DDoS'); } },
   slowloris: { name: 'Slowloris', tag: 'Slowloris', color: '#38bdf8', hp: 520, speed: 8, dps: 30, width: 52, height: 64, get desc() { return t('Very slow. In its lane, defenses shoot half as often', 'Muy lento. En su carril, las defensas disparan la mitad'); } },
   ransomware: { name: 'Ransomware', tag: 'Ransom', color: '#dc2626', hp: 260, speed: 24, dps: 30, width: 46, height: 56, get desc() { return t(`Encrypts the defense it attacks: off for ${ENCRYPT_TIME} s`, `Cifra la defensa que ataca: inactiva ${ENCRYPT_TIME} s`); } },
   memoryLeak: { name: 'Memory Leak', tag: 'Leak', color: '#a855f7', hp: 150, speed: 16, dps: 40, width: 40, height: 44, get desc() { return t('Grows and gains health over time', 'Crece y gana vida con el tiempo'); } },
 };
 
-/** Order used in the menu guide and wave preview (botlets come from botnets). */
+/** Order used in the menu guide and wave preview (botlets come from botnets, fake requests from DDoS). */
 export const ENEMY_ORDER: EnemyType[] = [
   'normal',
   'scraper',

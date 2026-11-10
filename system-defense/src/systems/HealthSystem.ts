@@ -30,6 +30,18 @@ export const HealthSystem: System = {
           spawnText(world, t.x, t.y - 40, '×3', '#fbbf24', 16);
           sound(ctx, 'split');
         }
+        if (enemy.type === 'ddos') {
+          // A DDoS splits into 4 small, fast fake requests.
+          const lane = world.req(e, 'lane').lane;
+          for (const dx of [-36, -12, 12, 36]) createEnemy(world, 'fakeRequest', lane, ctx.wave.hpScale, t.x + dx);
+          spawnText(world, t.x, t.y - 40, '×4', '#f87171', 16);
+          sound(ctx, 'split');
+        }
+        if (boss) {
+          // Black Friday drops the 6 orders of its cart: 6 Normal Traffic requests.
+          const lane = world.req(e, 'lane').lane;
+          for (const dx of [-50, -30, -10, 10, 30, 50]) createEnemy(world, 'normal', lane, ctx.wave.hpScale, t.x + dx);
+        }
       }
 
       const cell = world.get(e, 'gridCell');

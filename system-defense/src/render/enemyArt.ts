@@ -10,7 +10,7 @@ import { isoBlock, isoBox, onFace, paletteOf, poly, shade, type Look, type Palet
  * red LED and treads or legs, Exploits = float (no legs), Fallos internos = purple.
  * Threats walk left, so their face is on the left face of the block.
  * Black Friday is a wire shopping cart with the orders inside; DDoS is 4 red robots.
- * Every threat rams toward the defense when it attacks, with a flat impact star.
+ * Every threat rams toward the defense when it attacks.
  * The picker page also draws the "detail" look (d = true) with the same code.
  *
  * Each body draws the threat centered at (0, 0) with its feet on y = h/2.
@@ -710,34 +710,9 @@ function mix(a: string, b: string, k: number): string {
 
 /* ======================= attack ======================= */
 
-/** Flat impact star (no glow) where the threat hits the defense. */
-function impact(g: G, x: number, y: number, k: number): void {
-  g.save();
-  g.translate(x, y);
-  g.scale(0.6 + k * 0.6, 0.6 + k * 0.6);
-  g.globalAlpha = Math.min(1, k * 1.6);
-  const star: [number, number][] = [];
-  for (let i = 0; i < 16; i++) {
-    const r = i % 2 ? 3.5 : 9;
-    const ang = (i / 16) * TAU;
-    star.push([Math.cos(ang) * r, Math.sin(ang) * r]);
-  }
-  poly(g, star);
-  g.fillStyle = '#fde047';
-  g.fill();
-  g.lineWidth = 1;
-  g.strokeStyle = '#a16207';
-  g.stroke();
-  g.beginPath();
-  g.arc(0, 0, 3, 0, TAU);
-  g.fillStyle = '#ffffff';
-  g.fill();
-  g.restore();
-}
-
 /**
  * Attack, the same for every threat: it rams toward the defense on its left (with a small
- * squash) and a flat impact star shows the hit. Own moves (arm, plunger, lock…) come on top.
+ * squash). Own moves (arm, plunger, lock…) come on top.
  */
 export const withAttack = (body: EnemyBody): EnemyBody => (g, a) => {
   const lunge = a.atk * 12;
@@ -748,7 +723,6 @@ export const withAttack = (body: EnemyBody): EnemyBody => (g, a) => {
   g.translate(0, -a.h / 2);
   body(g, a);
   g.restore();
-  if (a.atk > 0.35) impact(g, -a.w / 2 - lunge - 6, -a.h * 0.1, (a.atk - 0.35) / 0.65);
 };
 
 type Pt = [number, number];
@@ -928,6 +902,30 @@ function wireCart(g: G, h: number, o: CartOpts): void {
 const bfPole: EnemyBody = (g, a) => wireCart(g, a.h, { t: a.t, atk: a.atk, tag: false });
 const bfTag: EnemyBody = (g, a) => wireCart(g, a.h, { t: a.t, atk: a.atk, tag: true });
 
+/** Fake request left by a DDoS: a small red request robot. */
+const fakeRequest = (d: boolean): EnemyBody => (g, a) => {
+  g.save();
+  g.translate(0, a.h / 2);
+  g.scale(0.62, 0.62);
+  requestBot(g, a.t, a.step, a.atk, '#b91c1c', '#fecaca', d ? 'GET' : '', 0.3, d);
+  g.restore();
+};
+
+/**
+ * Black Friday's cart is taller than a lane (sign, pile and wheels): scale it so it stays inside
+ * its lane (about y = -46 … 47), keeping the wheels on the ground.
+ */
+const fitLane = (body: EnemyBody): EnemyBody => (g, a) => {
+  const k = 0.74;
+  const y0 = -10;
+  g.save();
+  g.translate(0, y0);
+  g.scale(k, k);
+  g.translate(0, -y0);
+  body(g, a);
+  g.restore();
+};
+
 /* ======================= tables ======================= */
 
 type Maker = (d: boolean) => EnemyBody;
@@ -943,6 +941,7 @@ export const ROUND5_MAKERS: Record<EnemyType, Maker> = {
   memoryLeak,
   botnet,
   botlet,
+  fakeRequest,
   slowloris,
   blackFriday,
 };
@@ -958,10 +957,11 @@ export const ENEMY_ART: Record<EnemyType, EnemyBody> = {
   scraper: withAttack(scraper(false)),
   ddos: withAttack(ddos(false, DDOS_4)),
   zeroDay: withAttack(zeroDay(false)),
-  blackFriday: ROUND6.bfPole,
+  blackFriday: fitLane(ROUND6.bfPole),
   sqli: withAttack(sqli(false)),
   botnet: withAttack(botnet(false)),
   botlet: withAttack(botlet(false)),
+  fakeRequest: withAttack(fakeRequest(false)),
   slowloris: withAttack(slowloris(false)),
   ransomware: withAttack(ransomware(false)),
   memoryLeak: withAttack(memoryLeak(false)),

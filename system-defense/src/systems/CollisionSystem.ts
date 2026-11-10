@@ -1,9 +1,9 @@
-import { SLOW_DURATION, SLOW_FACTOR } from '../config';
+import { onBoard, SLOW_DURATION, SLOW_FACTOR } from '../config';
 import type { Entity } from '../ecs/World';
 import type { System } from '../ecs/System';
 import { spawnSparks } from '../game/factories';
 
-/** Projectile vs. enemy hits in the same lane. The closest enemy takes the hit. */
+/** Projectile vs. enemy hits in the same lane. The closest enemy on the board takes the hit. */
 export const CollisionSystem: System = {
   name: 'collision',
   update(world) {
@@ -17,6 +17,7 @@ export const CollisionSystem: System = {
         if (world.req(e, 'lane').lane !== proj.lane) continue;
         const et = world.req(e, 'transform');
         const enemy = world.req(e, 'enemy');
+        if (!onBoard(et.x, enemy.width)) continue;
         if (Math.abs(et.x - pt.x) <= enemy.width / 2 + proj.radius && et.x < bestX) {
           best = e;
           bestX = et.x;
