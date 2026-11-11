@@ -1,13 +1,17 @@
 import { t as tr } from '../i18n';
 import type { EnemyType } from '../config';
-import { circ, line, paint, rr, TAU, txt, type G } from './shapes';
+import { TAU, txt, type G } from './shapes';
+import { isoBlock, isoBox, onFace, paletteOf, poly, shade, type Look, type Palette } from './isoKit';
 
 /*
- * Threat avatars chosen by the user on the avatar picker page (rounds 1–4).
- * Style: simple and technological, not monsters. Flat shapes, a dark screen with LED eyes
- * looking left (toward the base), one clear symbol per threat. Families share a trait:
- * Tráfico = blue "request" band (red = fake traffic), Bots = orange + antenna with red LED,
- * Exploits = float (no legs), Fallos internos = purple.
+ * Threat avatars chosen by the user on the avatar picker page (threat rounds 5 and 6, option A):
+ * isometric robots in the style of Design the Arki, the same line as the defenses.
+ * Families: Tráfico = blue "request" band (red = fake traffic), Bots = orange + antenna with
+ * red LED and treads or legs, Exploits = float (no legs), Fallos internos = purple.
+ * Threats walk left, so their face is on the left face of the block.
+ * Black Friday is a wire shopping cart with the orders inside; DDoS is 4 red robots.
+ * Every threat rams toward the defense when it attacks.
+ * The picker page also draws the "detail" look (d = true) with the same code.
  *
  * Each body draws the threat centered at (0, 0) with its feet on y = h/2.
  * Shadow, walking bob and attack lean are added by drawEnemy in sprites.ts.
@@ -24,482 +28,928 @@ export interface EnemyAnim {
 }
 export type EnemyBody = (g: G, a: EnemyAnim) => void;
 
-/* ---------------- Shared parts ---------------- */
-
-/** Two walking legs at the bottom of the box. */
-function legs(g: G, a: EnemyAnim, color: string, spread: number, len: number, wd: number): void {
-  g.fillStyle = color;
-  rr(g, -spread - wd / 2 + a.step * 3, a.h / 2 - len, wd, len, 3);
-  g.fill();
-  rr(g, spread - wd / 2 - a.step * 3, a.h / 2 - len, wd, len, 3);
-  g.fill();
-}
-
-/** Dark screen with two LED eyes looking left. Blinks now and then. */
-function face(g: G, x: number, y: number, w: number, h: number, led: string, t: number, seed = 0, bg = '#0b1224'): void {
-  rr(g, x, y, w, h, Math.min(5, h / 2.5));
-  paint(g, bg);
-  const blink = (t + seed) % 3.4 < 0.12;
-  const ew = Math.max(2.5, w * 0.16);
-  const eh = blink ? 1.2 : Math.max(3, h * 0.5);
-  const ey = y + h / 2 - eh / 2;
-  g.fillStyle = led;
-  rr(g, x + w * 0.16, ey, ew, eh, 1.2);
-  g.fill();
-  rr(g, x + w * 0.16 + ew + w * 0.14, ey, ew, eh, 1.2);
-  g.fill();
-}
-
-/** Small antenna with a blinking LED. */
-function antenna(g: G, x: number, y: number, len: number, stick: string, led: string, t: number): void {
-  line(g, x, y, x + 2, y - len, stick, 1.5);
-  circ(g, x + 2, y - len - 1.5, 2);
-  paint(g, Math.sin(t * 5) > 0 ? led : '#1e293b');
-}
-
-/** Wheel with one turning spoke. */
-function wheel(g: G, x: number, y: number, r: number, t: number, fill: string, rim: string, speed = 4): void {
-  circ(g, x, y, r);
-  paint(g, fill, rim, 1.5);
-  const a = -t * speed;
-  line(g, x - Math.cos(a) * r * 0.7, y - Math.sin(a) * r * 0.7, x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7, rim, 1.2);
-}
-
-/** Tráfico family: blue "request" band with a label. */
-function band(g: G, x: number, y: number, w: number, label: string, size = 7): void {
-  rr(g, x, y, w, 11, 5.5);
-  paint(g, '#0369a1', '#7dd3fc', 1);
-  txt(g, label, x + w / 2, y + 5.8, size, '#ffffff', 800);
-}
-
-/** Mini request (DDoS swarm, Black Friday cart). Red = fake traffic; it keeps the blue band. */
-function miniReq(g: G, x: number, y: number, s: number, t: number, seed: number, red: boolean): void {
-  g.save();
-  g.translate(x, y);
-  g.scale(s, s);
-  const st = Math.sin(t * 10 + seed);
-  g.fillStyle = red ? '#450a0a' : '#334155';
-  g.fillRect(-7 + st * 2, 5, 4, 6);
-  g.fillRect(3 - st * 2, 5, 4, 6);
-  rr(g, -10, -12, 20, 18, 4);
-  paint(g, red ? '#b91c1c' : '#475569', red ? '#fca5a5' : '#cbd5e1', 1);
-  face(g, -8, -10, 14, 7, red ? '#fecaca' : '#7dd3fc', t, seed, red ? '#1c0606' : '#0b1224');
-  rr(g, -10, 0, 20, 5, 2.5);
-  paint(g, '#0369a1');
-  g.restore();
-}
+const flat = (color: string): Look => ({ rich: false, p: paletteOf(color) });
+const BAND = '#0369a1';
+const BOT_LED = '#ef4444';
 
 /** Hover offset for floating threats. */
-const hover = (t: number, amp = 2): number => Math.sin(t * 4) * amp;
+export const hover = (t: number, amp = 2): number => Math.sin(t * 4) * amp;
 
-/** Flat "hover pad" line under a floating threat (no glow). */
-function hoverPad(g: G, y: number, w: number, color: string, t: number): void {
+/* ======================= shared parts ======================= */
+
+/** Rectangle in face space (see onFace). */
+export function rect(g: G, x: number, y: number, w: number, h: number, color: string): void {
+  g.fillStyle = color;
+  g.fillRect(x, y, w, h);
+}
+
+/** Dark screen with two LED eyes near its left side (looking left). Blinks now and then. Face space. */
+function screen(g: G, x: number, y: number, w: number, h: number, led: string, t: number, seed: number, d: boolean): void {
+  rect(g, x, y, w, h, '#0b1224');
+  if (d) {
+    // bezel and bolts
+    g.strokeStyle = '#94a3b8';
+    g.lineWidth = 0.6;
+    g.strokeRect(x - 0.8, y - 0.8, w + 1.6, h + 1.6);
+    for (const [bx, by] of [[x - 0.8, y - 0.8], [x + w + 0.8, y - 0.8], [x - 0.8, y + h + 0.8], [x + w + 0.8, y + h + 0.8]]) {
+      g.beginPath();
+      g.arc(bx, by, 0.7, 0, TAU);
+      g.fillStyle = '#cbd5e1';
+      g.fill();
+    }
+  }
+  const blink = (t * 0.7 + seed) % 3 < 0.12;
+  const eh = blink ? 0.8 : h * 0.45;
+  const ew = Math.max(1.6, w * 0.13);
+  rect(g, x + w * 0.16, y + (h - eh) / 2, ew, eh, led);
+  rect(g, x + w * 0.42, y + (h - eh) / 2, ew, eh, led);
+}
+
+/** Tráfico family band with a label. Face space. */
+function band(g: G, x: number, y: number, w: number, h: number, label: string, size: number): void {
+  rect(g, x, y, w, h, BAND);
+  if (label) txt(g, label, x + w / 2, y + h / 2 + 0.3, size, '#e0f2fe', 800);
+}
+
+/** Antenna with a blinking LED, from (x, y) up. */
+function antenna(g: G, x: number, y: number, len: number, stick: string, led: string, t: number): void {
+  g.strokeStyle = stick;
+  g.lineWidth = 1.2;
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(x, y - len);
+  g.stroke();
+  g.beginPath();
+  g.arc(x, y - len - 1.5, 2, 0, TAU);
+  g.fillStyle = t % 1.2 < 0.8 ? led : shade(led, -0.55);
+  g.fill();
+}
+
+/** Top centre of an isoBlock. */
+const topCenter = (fx: number, fy: number, a: number, b: number, h: number): [number, number] => [fx + (b - a) / 2, fy - (a + b) / 4 - h];
+
+/** Two legs (small blocks) that step; the back one first. */
+function legs(g: G, L: Look, fx: number, fy: number, step: number, gap: number, s = 1): void {
+  const up1 = Math.max(0, step) * 3 * s;
+  const up2 = Math.max(0, -step) * 3 * s;
+  isoBlock(g, L, fx + gap, fy - gap / 2 - up2, 4 * s, 4 * s, 9 * s);
+  isoBlock(g, L, fx, fy - up1, 4 * s, 4 * s, 9 * s);
+}
+
+/** Thin dark seam lines on a face (detail look). Face space. */
+function seams(g: G, x: number, ys: number[], w: number, color: string): void {
+  g.strokeStyle = color;
+  g.lineWidth = 0.6;
+  g.beginPath();
+  for (const y of ys) {
+    g.moveTo(x, y);
+    g.lineTo(x + w, y);
+  }
+  g.stroke();
+}
+
+/** Vent slits (detail look). Face space. */
+function vents(g: G, x: number, y: number, n: number, color: string): void {
+  for (let i = 0; i < n; i++) rect(g, x + i * 2.4, y, 1.2, 5, color);
+}
+
+/** Flat hover pad under a floating threat (no glow). */
+export function hoverPad(g: G, y: number, w: number, color: string, t: number): void {
   g.globalAlpha = 0.45 + 0.25 * Math.sin(t * 8);
   g.fillStyle = color;
   g.beginPath();
-  g.ellipse(0, y, w, 2, 0, 0, TAU);
+  g.ellipse(0, y, w, w / 4, 0, 0, TAU);
   g.fill();
   g.globalAlpha = 1;
 }
 
-/** Tank treads with moving marks. Center (x, y). */
-function treads(g: G, x: number, y: number, w: number, h: number, t: number, rim: string): void {
-  rr(g, x - w / 2, y - h / 2, w, h, h / 2);
-  paint(g, '#292524', rim, 1.5);
-  for (let i = 0; i < 3; i++) {
-    circ(g, x - w / 2 + h / 2 + i * ((w - h) / 2), y, h / 2 - 3);
-    paint(g, '#44403c', rim, 1);
-  }
-  g.strokeStyle = rim;
-  g.lineWidth = 1.2;
-  g.beginPath();
-  const step = 5;
-  const off = (t * 14) % step;
-  for (let px = x - w / 2 + h / 2 - off; px < x + w / 2 - h / 2; px += step) {
-    g.moveTo(px, y - h / 2);
-    g.lineTo(px, y - h / 2 + 2);
-    g.moveTo(px + step / 2, y + h / 2);
-    g.lineTo(px + step / 2, y + h / 2 - 2);
-  }
-  g.stroke();
-}
-
-function padlock(g: G, x: number, y: number, s: number): void {
-  g.save();
-  g.translate(x, y);
-  g.scale(s, s);
-  g.strokeStyle = '#fecaca';
-  g.lineWidth = 3;
-  g.beginPath();
-  g.arc(0, -6, 7, Math.PI, TAU);
-  g.stroke();
-  rr(g, -10, -6, 20, 16, 3);
-  paint(g, '#dc2626');
-  circ(g, 0, 1, 2.5);
-  paint(g, '#450a0a');
-  g.fillRect(-1, 2, 2, 5);
-  g.restore();
-}
-
 /* ======================= Tráfico ======================= */
 
-/** Tráfico Normal: a box with LED eyes, a "GET /" tab and a little arm that knocks. */
-const normal: EnemyBody = (g, a) => {
-  const { w, h, t, atk } = a;
-  legs(g, a, '#334155', 9, 12, 7);
-  rr(g, -w / 2 - 4 - atk * 6, 2, 9, 6, 3);
-  paint(g, '#64748b', '#cbd5e1', 1);
-  antenna(g, 7, -h / 2, 6, '#94a3b8', '#7dd3fc', t);
-  rr(g, -w / 2, -h / 2, w, h - 10, 9);
-  paint(g, '#475569', '#cbd5e1', 1.5);
-  face(g, -17, -h / 2 + 6, 30, 16, '#7dd3fc', t, 0.4);
-  rr(g, -16, -1, 32, 12, 6);
-  paint(g, '#1e293b');
-  txt(g, 'GET /', 0, 5, 8, '#e2e8f0');
-};
-
-/** DDoS: a swarm of red mini requests (fake traffic). */
-const DDOS_SWARM: [number, number, number][] = [
-  [30, -16, 0.6], [26, 14, 0.65], [16, -2, 0.75], [2, -22, 0.8], [2, 16, 0.85], [-18, -4, 1.05],
-];
-const ddos: EnemyBody = (g, a) => {
-  const { t, atk } = a;
-  DDOS_SWARM.forEach(([x, y, s], i) => {
-    miniReq(g, x - atk * (4 + i * 1.5), y + Math.sin(t * 5 + i) * 2, s, t + i * 0.37, i * 0.7 + 0.3, true);
+/** A request robot with its feet at (0, 0): the Tráfico Normal, and the mini requests of DDoS and Black Friday. */
+function requestBot(g: G, t: number, step: number, atk: number, color: string, led: string, label: string, seed: number, d: boolean): void {
+  const L = flat(color);
+  const legL = flat(shade(color, -0.45));
+  legs(g, legL, -4, 0, step, 9);
+  // arm that knocks
+  isoBlock(g, flat(shade(color, 0.15)), -20 - atk * 12, -20 - atk * 3, 5 + atk * 6, 3, 4);
+  const fx = -1;
+  const fy = -8;
+  const a = 20;
+  const b = 12;
+  const h = 30;
+  isoBlock(g, L, fx, fy, a, b, h);
+  onFace(g, 'left', fx, fy, a, () => {
+    screen(g, 2, -27, 16, 11, led, t, seed, d);
+    band(g, 1, -11, 18, 6, label, 4.4);
+    if (d) seams(g, 0, [-3], a, L.p.dark);
   });
-  band(g, -16, 26, 32, 'x10⁶', 7);
+  if (d)
+    onFace(g, 'right', fx, fy, b, () => {
+      vents(g, 3, -22, 3, shade(color, -0.6));
+      seams(g, 0, [-13, -3], b, shade(color, -0.6));
+    });
+  const [ax, ay] = topCenter(fx, fy, a, b, h);
+  antenna(g, ax + 3, ay, 6, shade(color, 0.3), led, t + seed);
+}
+
+const normal = (d: boolean): EnemyBody => (g, a) => {
+  g.save();
+  g.translate(0, a.h / 2);
+  requestBot(g, a.t, a.step, a.atk, '#64748b', '#7dd3fc', 'GET /', 0.4, d);
+  g.restore();
 };
 
-/** Black Friday: a cart full of orders with a "-70%" sign on a pole. No head. */
-const BF_PILE: [number, number, number][] = [
-  [-36, -26, 0.95], [-16, -26, 0.95], [4, -26, 0.95], [24, -26, 0.95],
-  [-26, -44, 0.9], [-6, -44, 0.9], [14, -44, 0.9],
+/** DDoS: a swarm of red mini requests (fake traffic), on a "x10⁶" plate. */
+const SWARM: [number, number, number][] = [
+  [26, -6, 0.5], [14, 16, 0.55], [-4, -12, 0.6], [30, 22, 0.6], [-8, 14, 0.7], [-26, 24, 0.75],
 ];
-const blackFriday: EnemyBody = (g, a) => {
+const ddos = (d: boolean, swarm: [number, number, number][] = SWARM): EnemyBody => (g, a) => {
   const { t, atk } = a;
-  g.translate(-atk * 8, 0);
-  // wheels and handle
-  line(g, -32, 30, -32, 46, '#facc15', 3);
-  line(g, 24, 30, 24, 46, '#facc15', 3);
-  wheel(g, -32, 52, 8, t, '#111827', '#facc15');
-  wheel(g, 24, 52, 8, t, '#111827', '#facc15');
-  line(g, 40, -20, 52, -40, '#facc15', 3.5);
-  line(g, 48, -40, 56, -40, '#facc15', 4);
-  // cargo: pile of orders + pole sign
-  BF_PILE.forEach(([x, y, s], i) => miniReq(g, x, y - atk * 4 + Math.sin(t * 6 + i) * 0.8, s, t + i * 0.3, i + 0.5, false));
-  line(g, 32, -20, 32, -48, '#facc15', 3);
-  g.save();
-  g.translate(32, -48);
-  g.rotate(Math.sin(t * 2.5) * 0.06 - atk * 0.15);
-  rr(g, -20, -22, 40, 22, 4);
-  paint(g, '#dc2626', '#fecaca', 2);
-  txt(g, '-70%', 0, -10.5, 13, '#ffffff', 900);
-  g.restore();
-  // basket front
-  g.beginPath();
-  g.moveTo(-50, -20);
-  g.lineTo(42, -20);
-  g.lineTo(32, 30);
-  g.lineTo(-40, 30);
-  g.closePath();
-  paint(g, '#1f2937', '#facc15', 2.5);
-  g.strokeStyle = 'rgba(250,204,21,0.35)';
-  g.lineWidth = 1.5;
-  g.beginPath();
-  for (const x of [-24, 0, 22]) {
-    g.moveTo(x, -18);
-    g.lineTo(x - 3, 28);
-  }
-  g.moveTo(-46, -3);
-  g.lineTo(38, -3);
-  g.stroke();
-  band(g, -40, 10, 70, 'BLACK FRIDAY', 7);
+  swarm.forEach(([x, y, s], i) => {
+    g.save();
+    g.translate(x - atk * (4 + i * 1.5), y + Math.sin(t * 5 + i) * 1.5);
+    g.scale(s, s);
+    requestBot(g, t + i * 0.37, Math.sin(t * 9 + i), atk, '#b91c1c', '#fecaca', d ? 'GET' : '', i * 0.7 + 0.3, d);
+    g.restore();
+  });
+  const L = flat(BAND);
+  isoBlock(g, L, -4, a.h / 2 + 2, 26, 8, 4);
+  onFace(g, 'left', -4, a.h / 2 + 2, 26, () => txt(g, 'x10⁶', 13, -2, 4, '#e0f2fe', 800));
 };
 
 /** Slowloris: a floating loading bar stuck at 2 %. */
-const slowloris: EnemyBody = (g, a) => {
+const slowloris = (d: boolean): EnemyBody => (g, a) => {
   const { t, atk } = a;
-  hoverPad(g, 22, 18, '#38bdf8', t);
-  g.translate(-atk * 3, -6 + hover(t, 1.5));
-  rr(g, -26, -12, 52, 22, 11);
-  paint(g, '#0c4a6e', '#7dd3fc', 1.5);
-  face(g, -23, -8, 14, 14, '#bae6fd', t, 0.4);
-  rr(g, -6, -5, 28, 8, 4);
-  paint(g, '#082f49');
-  rr(g, -6, -5, 3 + ((t * 0.04) % 1) * 4, 8, 4);
-  paint(g, '#38bdf8');
-  txt(g, '2%', 8, -17, 6, '#bae6fd', 800);
-  band(g, -18, 11, 36, tr('loading', 'cargando'), 6);
+  hoverPad(g, a.h / 2 - 2, 16, '#38bdf8', t);
+  g.save();
+  g.translate(-atk * 3, hover(t, 1.5));
+  const L = flat('#0c4a6e');
+  const fx = 10;
+  const fy = 10;
+  const len = 40;
+  isoBlock(g, L, fx, fy, len, 9, 17);
+  onFace(g, 'left', fx, fy, len, () => {
+    screen(g, 2, -15, 9, 10, '#bae6fd', t, 0.4, d);
+    rect(g, 13, -12, 24, 5, '#082f49');
+    rect(g, 13, -12, 1 + ((t * 0.04) % 1) * 2, 5, '#38bdf8');
+    if (d) for (let i = 1; i < 6; i++) rect(g, 13 + i * 4, -12, 0.4, 5, '#0c4a6e');
+    band(g, 6, -4, 28, 3.6, d ? tr('loading…', 'cargando…') : tr('loading', 'cargando'), 3);
+  });
+  const [cx, cy] = topCenter(fx, fy, len, 9, 17);
+  txt(g, '2%', cx + 2, cy - 4, 6, '#bae6fd', 800);
+  if (d) {
+    // spinner dots stuck in place
+    for (let i = 0; i < 6; i++) {
+      const r = (i / 6) * TAU;
+      g.globalAlpha = 0.3 + (i / 6) * 0.7;
+      g.beginPath();
+      g.arc(cx - 12 + Math.cos(r) * 3, cy - 5 + Math.sin(r) * 3, 0.8, 0, TAU);
+      g.fillStyle = '#bae6fd';
+      g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+  g.restore();
+};
+
+/** Black Friday: a cart full of orders with a "-70%" sign on a pole. No head. */
+const blackFriday = (d: boolean): EnemyBody => (g, a) => {
+  const { t, atk, h } = a;
+  g.save();
+  g.translate(-atk * 8, 0);
+  const gy = h / 2;
+  const fx = -6;
+  const fy = gy - 16;
+  const A = 46;
+  const B = 26;
+  const H = 34;
+  const yellow = '#facc15';
+  // wheels under the basket, on the left face plane
+  onFace(g, 'left', fx, fy, A, () => {
+    for (const x of [8, 38]) {
+      g.strokeStyle = yellow;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.lineTo(x, 8);
+      g.stroke();
+      g.beginPath();
+      g.arc(x, 10, 6, 0, TAU);
+      g.fillStyle = '#111827';
+      g.fill();
+      g.strokeStyle = yellow;
+      g.stroke();
+      const r = -t * 4;
+      g.beginPath();
+      g.moveTo(x, 10);
+      g.lineTo(x + Math.cos(r) * 5, 10 + Math.sin(r) * 5);
+      g.lineWidth = 1;
+      g.stroke();
+    }
+  });
+  const basket: Palette = { base: '#334155', light: '#475569', dark: '#1f2937', top: '#0b1220', glow: yellow, window: yellow };
+  isoBlock(g, flat('#334155'), fx, fy, A, B, H, basket);
+  // the pile of orders stands in the open basket
+  const [tx, ty] = topCenter(fx, fy, A, B, H);
+  const pile: [number, number, number][] = [[-18, 4, 0.5], [2, 6, 0.5], [-6, -4, 0.48], [14, -2, 0.48], [-26, -6, 0.45], [6, 12, 0.52]];
+  pile.sort((p, q) => p[1] - q[1]).forEach(([x, y, s], i) => {
+    g.save();
+    g.translate(tx + x, ty + y - atk * 4 + Math.sin(t * 6 + i) * 0.8);
+    g.scale(s, s);
+    requestBot(g, t + i * 0.3, 0, 0, '#64748b', '#7dd3fc', d ? 'GET' : '', i + 0.5, d);
+    g.restore();
+  });
+  // front wall of the basket again, so the orders sit inside it
+  g.globalAlpha = 0.92;
+  isoBlock(g, flat('#334155'), fx, fy, A, B, H * 0.55, { ...basket, top: 'rgba(0,0,0,0)' });
+  g.globalAlpha = 1;
+  onFace(g, 'left', fx, fy, A, () => {
+    g.strokeStyle = 'rgba(250,204,21,0.45)';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (const x of d ? [8, 16, 24, 32, 40] : [12, 24, 36]) {
+      g.moveTo(x, -1);
+      g.lineTo(x, -H * 0.55 + 1);
+    }
+    g.stroke();
+    g.strokeStyle = yellow;
+    g.lineWidth = 1.6;
+    g.strokeRect(0, -H * 0.55, A, H * 0.55);
+    band(g, 4, -12, 38, 7, 'BLACK FRIDAY', 4.8);
+  });
+  // handle at the back right
+  g.strokeStyle = yellow;
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(fx + B, fy - B / 2 - H * 0.55);
+  g.lineTo(fx + B + 10, fy - B / 2 - H - 8);
+  g.lineTo(fx + B + 18, fy - B / 2 - H - 12);
+  g.stroke();
+  // pole and swinging sign
+  const px = fx + B - 4;
+  const py = fy - B / 2 - H * 0.55;
+  g.lineWidth = 2.6;
+  g.beginPath();
+  g.moveTo(px, py);
+  g.lineTo(px, py - 52);
+  g.stroke();
+  g.save();
+  g.translate(px, py - 52);
+  g.rotate(Math.sin(t * 2.5) * 0.06 - atk * 0.15);
+  isoBlock(g, flat('#dc2626'), 6, 6, 32, 4, 20);
+  onFace(g, 'left', 6, 6, 32, () => {
+    txt(g, '-70%', 16, -10, 10, '#ffffff', 900);
+    if (d) {
+      g.strokeStyle = '#fecaca';
+      g.lineWidth = 0.8;
+      g.strokeRect(1.5, -18.5, 29, 17);
+    }
+  });
+  g.restore();
+  g.restore();
 };
 
 /* ======================= Bots ======================= */
 
+/** Treads seen from the side, on the left face plane: marks run while it moves. Face space. */
+function treadMarks(g: G, len: number, h: number, t: number, d: boolean): void {
+  const step = 4;
+  const off = (t * 14) % step;
+  g.fillStyle = '#57534e';
+  for (let x = off; x < len - 1; x += step) g.fillRect(x, -h, 1.4, h);
+  if (d)
+    for (const x of [3, len / 2, len - 3]) {
+      g.beginPath();
+      g.arc(x, -h / 2, h / 2 - 1, 0, TAU);
+      g.fillStyle = '#44403c';
+      g.fill();
+      g.strokeStyle = '#fb923c';
+      g.lineWidth = 0.6;
+      g.stroke();
+    }
+}
+
 /** Scraper Bot on treads, with a scan beam toward the ground ahead. */
-const scraper: EnemyBody = (g, a) => {
-  const { h, t, atk } = a;
-  const eyeX = -15 + ((Math.sin(t * 3) + 1) / 2) * 20;
-  g.fillStyle = `rgba(253,224,71,${0.2 + 0.15 * atk})`;
-  g.beginPath();
-  g.moveTo(eyeX, -h / 2 + 14);
-  g.lineTo(-58, h / 2);
-  g.lineTo(-30, h / 2);
-  g.closePath();
+const scraper = (d: boolean): EnemyBody => (g, a) => {
+  const { t, atk, h } = a;
+  const gy = h / 2;
+  g.save();
+  g.translate(-atk * 5, 0);
+  const tread = flat('#292524');
+  isoBlock(g, tread, -2, gy, 24, 12, 8);
+  onFace(g, 'left', -2, gy, 24, () => treadMarks(g, 24, 8, t, d));
+  const L = flat('#ea580c');
+  const fx = 0;
+  const fy = gy - 8;
+  const A = 20;
+  const B = 12;
+  const H = 26;
+  isoBlock(g, L, fx, fy, A, B, H);
+  let eye: [number, number] = [0, 0];
+  onFace(g, 'left', fx, fy, A, () => {
+    rect(g, 2, -23, 16, 10, '#0b1224');
+    const ex = 3 + ((Math.sin(t * 3) + 1) / 2) * 11;
+    rect(g, ex, -20, 2.4, 4, BOT_LED);
+    eye = [ex, -18];
+    if (d) {
+      g.strokeStyle = '#fdba74';
+      g.lineWidth = 0.6;
+      g.strokeRect(1.2, -23.8, 17.6, 11.6);
+      txt(g, 'BOT', 10, -7, 4.2, '#7c2d12', 800);
+    }
+  });
+  if (d)
+    onFace(g, 'right', fx, fy, B, () => {
+      vents(g, 3, -20, 3, '#7c2d12');
+      seams(g, 0, [-10], B, '#7c2d12');
+    });
+  // scan beam from the eye to the ground ahead
+  const ex = fx - A + eye[0];
+  const ey = fy - A / 2 + eye[0] * 0.5 + eye[1];
+  g.globalAlpha = 0.18 + 0.1 * Math.sin(t * 9);
+  poly(g, [[ex, ey], [ex - 22, gy + 2], [ex - 8, gy + 6]]);
+  g.fillStyle = BOT_LED;
   g.fill();
-  treads(g, 0, h / 2 - 7, 46, 14, t, '#fdba74');
-  rr(g, -6, 10, 12, 8, 2);
-  paint(g, '#78350f');
-  antenna(g, 8, -h / 2 + 4, 7, '#fdba74', '#ef4444', t);
-  rr(g, -25, -h / 2 + 4, 50, 40, 12);
-  paint(g, '#9a3412', '#fdba74', 1.5);
-  rr(g, -19, -h / 2 + 11, 38, 12, 6);
-  paint(g, '#1c1917');
-  rr(g, eyeX, -h / 2 + 14, 9, 6, 3);
-  paint(g, '#fde047');
-  txt(g, 'BOT', 0, 0, 10, '#ffedd5');
-  txt(g, '</>', 0, 9, 7, '#fdba74');
+  g.globalAlpha = 1;
+  const [ax, ay] = topCenter(fx, fy, A, B, H);
+  antenna(g, ax + 2, ay, 7, '#fdba74', BOT_LED, t);
+  g.restore();
 };
 
-/** Packets running along links (botnet). */
-function packetsOn(g: G, pts: [number, number][], t: number, speed: number): void {
-  g.strokeStyle = 'rgba(245,158,11,0.45)';
-  g.lineWidth = 1.2;
-  g.beginPath();
-  for (let i = 0; i < pts.length - 1; i++) {
-    g.moveTo(pts[i][0], pts[i][1]);
-    g.lineTo(pts[i + 1][0], pts[i + 1][1]);
+/** A small iso device with an optional antenna: the botnet's camera, router and fridge. */
+function device(g: G, kind: 'camera' | 'router' | 'fridge', x: number, y: number, t: number, d: boolean): void {
+  const L = flat('#f59e0b');
+  if (kind === 'camera') {
+    isoBlock(g, L, x, y, 9, 6, 8);
+    onFace(g, 'left', x, y, 9, () => {
+      g.beginPath();
+      g.arc(4.5, -4, 2.8, 0, TAU);
+      g.fillStyle = '#0b1224';
+      g.fill();
+      g.beginPath();
+      g.arc(4.5, -4, 1.1, 0, TAU);
+      g.fillStyle = BOT_LED;
+      g.fill();
+    });
+  } else if (kind === 'router') {
+    isoBlock(g, L, x, y, 12, 7, 4);
+    onFace(g, 'left', x, y, 12, () => {
+      for (let i = 0; i < 3; i++) rect(g, 2 + i * 3, -2.6, 1.4, 1.4, (t * 3 + i) % 2 < 1 ? '#4ade80' : '#166534');
+    });
+    const [cx, cy] = topCenter(x, y, 12, 7, 4);
+    antenna(g, cx - 3, cy, 5, '#fdba74', BOT_LED, t);
+    if (d) antenna(g, cx + 3, cy + 1, 4, '#fdba74', BOT_LED, t + 0.5);
+  } else {
+    isoBlock(g, L, x, y, 8, 7, 15);
+    onFace(g, 'left', x, y, 8, () => {
+      rect(g, 0, -10, 8, 0.6, shade('#f59e0b', -0.6));
+      rect(g, 6, -14, 0.9, 3, '#e5e7eb');
+      rect(g, 6, -8, 0.9, 4, '#e5e7eb');
+    });
   }
-  g.stroke();
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p = (t * speed + i / (pts.length - 1)) % 1;
-    const [x1, y1] = pts[i];
-    const [x2, y2] = pts[i + 1];
-    g.fillStyle = '#fbbf24';
-    g.fillRect(x1 + (x2 - x1) * p - 1.5, y1 + (y2 - y1) * p - 1.5, 3, 3);
+}
+
+/** Packets running along links. */
+function packets(g: G, from: [number, number], to: [number, number], t: number, n: number): void {
+  for (let i = 0; i < n; i++) {
+    const k = (t * 0.8 + i / n) % 1;
+    g.beginPath();
+    g.arc(from[0] + (to[0] - from[0]) * k, from[1] + (to[1] - from[1]) * k, 1.1, 0, TAU);
+    g.fillStyle = '#fde68a';
+    g.fill();
   }
 }
 
 /** Botnet: a camera, a router and a fridge hanging from a central cloud (the command server). */
-const botnet: EnemyBody = (g, a) => {
-  const { t, atk } = a;
-  const red = `rgba(239,68,68,${0.75 + 0.25 * Math.sin(t * 5)})`;
-  const cy = -24 + Math.sin(t * 2) * 1.5;
-  const cam: [number, number] = [-22 - atk * 3, -2 + Math.sin(t * 4) * 1.2];
-  const rou: [number, number] = [22 - atk * 3, -3 + Math.sin(t * 4 + 2) * 1.2];
-  for (const [x, y] of [cam, rou, [0, 4]] as [number, number][]) packetsOn(g, [[2, cy + 6], [x, y]], t, 0.8 + atk);
-  // cloud
-  g.fillStyle = '#1f2937';
-  g.strokeStyle = '#f59e0b';
-  g.lineWidth = 1.5;
-  g.beginPath();
-  g.arc(-6, cy, 6, Math.PI * 0.5, Math.PI * 1.5);
-  g.arc(3, cy - 4, 8, Math.PI, 0);
-  g.arc(12, cy, 6, Math.PI * 1.5, Math.PI * 0.5);
-  g.closePath();
-  g.fill();
-  g.stroke();
-  circ(g, 1, cy, 2.2);
-  paint(g, red);
-  circ(g, 7, cy, 2.2);
-  paint(g, red);
-  // camera
-  const [cx, cyc] = cam;
-  rr(g, cx - 11, cyc - 6, 22, 13, 3);
-  paint(g, '#e5e7eb', '#94a3b8', 1);
-  circ(g, cx - 7, cyc + 0.5, 4.5);
-  paint(g, '#111827');
-  circ(g, cx - 7, cyc + 0.5, 1.8);
-  paint(g, red);
-  // router
-  const [rx, ry] = rou;
-  line(g, rx - 7, ry - 5, rx - 10, ry - 13, '#64748b', 1.5);
-  line(g, rx + 7, ry - 5, rx + 10, ry - 13, '#64748b', 1.5);
-  rr(g, rx - 12, ry - 5, 24, 10, 2);
-  paint(g, '#1f2937', '#64748b', 1);
-  for (let i = 0; i < 3; i++) {
-    circ(g, rx - 6 + i * 6, ry, 1.5);
-    paint(g, red);
+const botnet = (d: boolean): EnemyBody => (g, a) => {
+  const { t, atk, h } = a;
+  const gy = h / 2;
+  g.save();
+  g.translate(-atk * 4, 0);
+  const cloud: [number, number] = [2, -16 + hover(t, 1.5)];
+  const devs: { kind: 'camera' | 'router' | 'fridge'; at: [number, number] }[] = [
+    { kind: 'camera', at: [-14, gy - 10] },
+    { kind: 'fridge', at: [6, gy] },
+    { kind: 'router', at: [24, gy - 6] },
+  ];
+  // links first
+  g.strokeStyle = 'rgba(253,186,116,0.6)';
+  g.lineWidth = 0.8;
+  for (const dv of devs) {
+    g.beginPath();
+    g.moveTo(cloud[0], cloud[1] + 6);
+    g.lineTo(dv.at[0], dv.at[1] - 12);
+    g.stroke();
+    packets(g, [cloud[0], cloud[1] + 6], [dv.at[0], dv.at[1] - 12], t, d ? 3 : 2);
   }
-  // fridge on legs
-  legs(g, a, '#334155', 5, 6, 4);
-  rr(g, -9, 0, 18, 23, 3);
-  paint(g, '#f1f5f9', '#94a3b8', 1);
-  line(g, -9, 9, 9, 9, '#94a3b8', 1);
-  line(g, 6, 3, 6, 7, '#64748b', 1.5);
-  rr(g, -7, 12, 14, 7, 2);
-  paint(g, '#0b1224');
-  circ(g, -3.5, 15.5, 1.6);
-  paint(g, red);
-  circ(g, 1.5, 15.5, 1.6);
-  paint(g, red);
+  for (const dv of devs) device(g, dv.kind, dv.at[0], dv.at[1] + Math.sin(t * 4 + dv.at[0]) * 0.8, t, d);
+  // cloud: puffs in two tones, flat
+  const puffs: [number, number, number][] = [[-12, 2, 7], [-3, -3, 9], [9, -1, 8], [16, 3, 6], [2, 4, 8]];
+  for (const [x, y, r] of puffs) {
+    g.beginPath();
+    g.arc(cloud[0] + x, cloud[1] + y + 1.5, r, 0, TAU);
+    g.fillStyle = '#b45309';
+    g.fill();
+  }
+  for (const [x, y, r] of puffs) {
+    g.beginPath();
+    g.arc(cloud[0] + x, cloud[1] + y, r - 1, 0, TAU);
+    g.fillStyle = '#f59e0b';
+    g.fill();
+  }
+  if (d)
+    for (const [x, y, r] of puffs.slice(0, 3)) {
+      g.beginPath();
+      g.arc(cloud[0] + x - 1.5, cloud[1] + y - 2, r * 0.45, 0, TAU);
+      g.fillStyle = '#fcd34d';
+      g.fill();
+    }
+  txt(g, 'C2', cloud[0] + 1, cloud[1] + 2, 7, '#451a03', 900);
+  antenna(g, cloud[0] + 10, cloud[1] - 7, 5, '#fdba74', BOT_LED, t);
+  g.restore();
 };
 
 /** Small bot left when a botnet dies: a mini camera on legs. */
-const botlet: EnemyBody = (g, a) => {
-  const { w, h, t } = a;
-  legs(g, a, '#334155', 5, 7, 4);
-  antenna(g, 5, -h / 2 + 5, 4, '#94a3b8', '#ef4444', t);
-  rr(g, -w / 2, -h / 2 + 5, w, h - 13, 4);
-  paint(g, '#e5e7eb', '#94a3b8', 1);
-  const cy = -h / 2 + 5 + (h - 13) / 2;
-  circ(g, -w / 2 + 7, cy, 4.5);
-  paint(g, '#111827');
-  circ(g, -w / 2 + 7, cy, 1.6);
-  paint(g, `rgba(239,68,68,${0.6 + 0.4 * Math.sin(t * 5)})`);
+const botlet = (d: boolean): EnemyBody => (g, a) => {
+  const { t, step, atk, h } = a;
+  g.save();
+  g.translate(-atk * 4, h / 2);
+  legs(g, flat('#92400e'), -2, 0, step, 6, 0.6);
+  const L = flat('#fbbf24');
+  isoBlock(g, L, 0, -5, 11, 7, 11);
+  onFace(g, 'left', 0, -5, 11, () => {
+    g.beginPath();
+    g.arc(5, -6, 3.4, 0, TAU);
+    g.fillStyle = '#0b1224';
+    g.fill();
+    g.beginPath();
+    g.arc(5, -6, 1.3, 0, TAU);
+    g.fillStyle = BOT_LED;
+    g.fill();
+    if (d) {
+      g.strokeStyle = '#92400e';
+      g.lineWidth = 0.6;
+      g.beginPath();
+      g.arc(5, -6, 4.2, 0, TAU);
+      g.stroke();
+    }
+  });
+  const [ax, ay] = topCenter(0, -5, 11, 7, 11);
+  antenna(g, ax + 1, ay, 4, '#fdba74', BOT_LED, t);
+  g.restore();
 };
 
 /* ======================= Exploits (they float) ======================= */
 
 /** Zero-Day: a glitch cube that breaks into pixels and appears again a bit ahead. */
-function zeroCube(g: G, t: number, atk: number, cy: number): void {
-  rr(g, -18, cy - 18, 36, 36, 6);
-  paint(g, '#a21caf', '#f5d0fe', 1.5);
-  face(g, -13, cy - 13, 26, 12, '#f5d0fe', t, 0.2, '#1a0b1f');
-  txt(g, '0day', 0, cy + 8, 8, '#fdf4ff', 800);
-  if (Math.floor(t * 6) % 7 === 0 || atk > 0.5) {
-    g.fillStyle = 'rgba(34,211,238,0.75)';
-    g.fillRect(-15, cy - 4, 36, 3.5);
-    g.fillStyle = 'rgba(244,114,182,0.75)';
-    g.fillRect(-23, cy + 10, 34, 3);
-  }
-}
-const zeroDay: EnemyBody = (g, a) => {
-  const { t, atk } = a;
-  const P = 1.6;
-  const p = (t % P) / P;
-  const cy = -4 + hover(t);
-  hoverPad(g, 20, 12, '#e879f9', t);
-  if (p < 0.2) {
-    // reassembling from scattered pixels
-    const k = p / 0.2;
-    for (let i = 0; i < 16; i++) {
-      const gx = (i % 4) * 9 - 13.5;
-      const gy = Math.floor(i / 4) * 9 - 13.5;
-      const sx = Math.sin(i * 12.9898) * 22 * (1 - k) + 14 * (1 - k);
-      const sy = Math.cos(i * 78.233) * 16 * (1 - k);
-      g.globalAlpha = 0.4 + 0.6 * k;
-      g.fillStyle = i % 3 ? '#a21caf' : '#e879f9';
-      g.fillRect(gx + sx - 4, cy + gy + sy - 4, 8, 8);
-    }
+const zeroDay = (d: boolean): EnemyBody => (g, a) => {
+  const { t, atk, h } = a;
+  hoverPad(g, h / 2 - 2, 13, '#e879f9', t);
+  const p = (t * 0.7) % 1;
+  const L = flat('#c026d3');
+  g.save();
+  g.translate(-atk * 6 + (atk ? Math.sin(t * 50) * 1 : 0), hover(t) + 6);
+  if (p < 0.82) {
+    // appears a bit ahead after each glitch
+    const a0 = Math.min(1, p / 0.1);
+    g.globalAlpha = a0;
+    isoBox(g, L, 0, 4, 13, 22);
+    onFace(g, 'left', 0, 4 + 6.5, 13, () => {
+      screen(g, 1.5, -18, 10, 8, '#f5d0fe', t, 0.2, d);
+      txt(g, '0day', 6.5, -5, 3.6, '#fdf4ff', 800);
+    });
+    if (d)
+      onFace(g, 'right', 0, 4 + 6.5, 13, () => {
+        g.strokeStyle = '#f0abfc';
+        g.lineWidth = 0.6;
+        g.beginPath();
+        g.moveTo(2, -4);
+        g.lineTo(5, -4);
+        g.lineTo(5, -12);
+        g.lineTo(9, -12);
+        g.lineTo(9, -18);
+        g.stroke();
+      });
     g.globalAlpha = 1;
-    return;
-  }
-  if (p < 0.45) {
-    // fading outline where it came from
-    g.globalAlpha = 1 - (p - 0.2) / 0.25;
-    g.setLineDash([3, 3]);
-    g.strokeStyle = '#e879f9';
-    g.lineWidth = 1.5;
-    rr(g, -4, cy - 18, 36, 36, 6);
-    g.stroke();
-    g.setLineDash([]);
+  } else {
+    // breaks into pixels
+    const k = (p - 0.82) / 0.18;
+    const pix: [number, number][] = [[-8, -14], [4, -18], [-2, -6], [8, -8], [-10, 2], [2, 4], [10, 0], [-4, -22]];
+    pix.forEach(([x, y], i) => {
+      g.globalAlpha = 1 - k;
+      isoBox(g, L, x * (1 + k * 1.5) - k * 10, y * (1 + k) + 4, 2.6, 4, i % 2 ? L.p : paletteOf('#f0abfc'));
+    });
     g.globalAlpha = 1;
   }
-  g.translate(-atk * 5, 0);
-  zeroCube(g, t, atk, cy);
+  g.restore();
 };
 
 /** SQL Injection: a floating syringe full of "OR 1=1". */
-const sqli: EnemyBody = (g, a) => {
-  const { t, atk } = a;
-  hoverPad(g, 18, 14, '#a3e635', t);
-  g.translate(0, 2 + hover(t));
-  line(g, -16, -6, -28 - atk * 6, -6, '#cbd5e1', 2);
-  rr(g, -18, -9, 4, 6, 1);
-  paint(g, '#94a3b8');
-  const push = atk * 7;
-  line(g, 16, -6, 26 - push, -6, '#94a3b8', 3);
-  rr(g, 25 - push, -14, 3, 16, 1);
-  paint(g, '#94a3b8');
-  rr(g, -14, -14, 30, 16, 3);
-  paint(g, 'rgba(236,252,203,0.95)', '#4d7c0f', 1.5);
-  rr(g, -13, -13, 22 - push, 14, 2);
-  paint(g, '#84cc16');
-  txt(g, 'OR 1=1', -2, -6, 6, '#1a2e05', 800);
-  face(g, -9, -24, 16, 9, '#d9f99d', t, 0.9, '#1a2e05');
+const sqli = (d: boolean): EnemyBody => (g, a) => {
+  const { t, atk, h } = a;
+  hoverPad(g, h / 2 - 2, 16, '#84cc16', t);
+  g.save();
+  g.translate(-atk * 4, hover(t) - 4);
+  const fx = 8;
+  const fy = 8;
+  const A = 30;
+  const B = 9;
+  const H = 10;
+  const push = atk * 8;
+  // plunger behind the barrel (toward the back right)
+  const rx = fx + B / 2;
+  const ry = fy - B / 4 - H / 2;
+  g.strokeStyle = '#e5e7eb';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(rx, ry);
+  g.lineTo(rx + 12 - push, ry + 6 - push / 2);
+  g.stroke();
+  isoBlock(g, flat('#d4d4d8'), rx + 12 - push + 3, ry + 6 - push / 2 + 5, 3, 8, 8);
+  // needle out of the left end
+  const nx = fx - A + B / 2;
+  const ny = fy - A / 2 - B / 4 - H / 2;
+  g.strokeStyle = '#cbd5e1';
+  g.lineWidth = 1.2;
+  g.beginPath();
+  g.moveTo(nx, ny);
+  g.lineTo(nx - 12, ny - 6);
+  g.stroke();
+  if (d) {
+    const drop = (t * 1.2) % 1;
+    g.globalAlpha = 1 - drop;
+    g.beginPath();
+    g.arc(nx - 13, ny - 6 + drop * 10, 1.2, 0, TAU);
+    g.fillStyle = '#84cc16';
+    g.fill();
+    g.globalAlpha = 1;
+  }
+  const glass: Palette = { base: '#d9f99d', light: '#ecfccb', dark: '#a3e635', top: '#f7fee7', glow: '#84cc16', window: '#84cc16' };
+  isoBlock(g, flat('#d9f99d'), fx, fy, A, B, H, glass);
+  onFace(g, 'left', fx, fy, A, () => {
+    const fill = 22 - push * 1.5;
+    rect(g, A - fill - 1, -8.5, fill, 7, '#4d7c0f');
+    txt(g, 'OR 1=1', A - 12, -5, 3.8, '#f7fee7', 800);
+    if (d) for (let i = 1; i < 7; i++) rect(g, i * 4, -10, 0.5, 2.5, '#365314');
+  });
+  if (d) isoBlock(g, flat('#a3a3a3'), fx + 2, fy + 1, 2, 12, 1.5);
+  g.restore();
 };
 
-function filePage(g: G, x: number, y: number, fill: string): void {
-  g.beginPath();
-  g.moveTo(x - 16, y - 26);
-  g.lineTo(x + 8, y - 26);
-  g.lineTo(x + 16, y - 18);
-  g.lineTo(x + 16, y + 17);
-  g.lineTo(x - 16, y + 17);
-  g.closePath();
-  paint(g, fill, '#94a3b8', 1.5);
-  g.beginPath();
-  g.moveTo(x + 8, y - 26);
-  g.lineTo(x + 8, y - 18);
-  g.lineTo(x + 16, y - 18);
-  paint(g, '#cbd5e1');
-}
-function chain(g: G, x1: number, y1: number, x2: number, y2: number, links: number): void {
-  g.strokeStyle = '#64748b';
-  g.lineWidth = 2;
-  for (let i = 0; i < links; i++) {
-    const k = i / (links - 1);
-    g.beginPath();
-    g.ellipse(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k, i % 2 ? 2.2 : 4, i % 2 ? 4 : 2.2, 0.5, 0, TAU);
-    g.stroke();
-  }
-}
-
 /** Ransomware: a floating stack of files, chained and locked. */
-const ransomware: EnemyBody = (g, a) => {
-  const { t, atk } = a;
-  hoverPad(g, 24, 14, '#f87171', t);
-  g.translate(-atk * 4, -4 + hover(t));
-  filePage(g, 8, -6, '#94a3b8');
-  filePage(g, 4, -3, '#cbd5e1');
-  filePage(g, 0, 0, '#f1f5f9');
-  face(g, -12, -22, 18, 9, '#f87171', t, 0.5, '#1c0606');
-  for (const y of [-8, -2, 4, 10]) line(g, -11, y, 10, y, '#cbd5e1', 1.5);
-  chain(g, -22, -14, 26, 10, 8);
-  padlock(g, 2, -1, 0.6);
+const ransomware = (d: boolean): EnemyBody => (g, a) => {
+  const { t, atk, h } = a;
+  hoverPad(g, h / 2 - 2, 15, '#dc2626', t);
+  g.save();
+  g.translate(-atk * 5, hover(t) - 2);
+  const paper = flat('#e2e8f0');
+  const fx = 2;
+  for (let i = 0; i < 3; i++) {
+    const fy = 12 - i * 7;
+    isoBlock(g, paper, fx, fy, 18, 14, 5);
+    onFace(g, 'left', fx, fy, 18, () => {
+      rect(g, 0, -5, 18, 1.6, '#dc2626');
+      if (d) for (let k = 0; k < 2; k++) rect(g, 3, -3 + k * 1.3, 10 - k * 3, 0.5, '#64748b');
+    });
+  }
+  // chain across the stack (on the left face plane)
+  onFace(g, 'left', fx, 12, 18, () => {
+    g.strokeStyle = '#94a3b8';
+    g.lineWidth = 1.2;
+    for (let k = 0; k < 6; k++) {
+      g.beginPath();
+      g.ellipse(1 + k * 3.2, -2 - k * 3, 1.8, 1.1, -0.75, 0, TAU);
+      g.stroke();
+    }
+  });
+  // padlock in front
+  const sh = atk ? Math.sin(t * 40) * 2.5 : 0;
+  g.strokeStyle = '#fecaca';
+  g.lineWidth = 1.8;
+  g.beginPath();
+  g.arc(-9 + sh, 4, 3.4, Math.PI, 0);
+  g.stroke();
+  isoBlock(g, flat('#dc2626'), -9 + sh, 14, 6, 4, 9);
+  onFace(g, 'left', -9 + sh, 14, 6, () => {
+    g.beginPath();
+    g.arc(3, -5.5, 1, 0, TAU);
+    g.fillStyle = '#450a0a';
+    g.fill();
+    if (d) rect(g, 2.6, -5, 0.8, 2.4, '#450a0a');
+  });
+  g.restore();
 };
 
 /* ======================= Fallos internos ======================= */
 
-/** Memory Leak: a memory chip that heats up. Drawn in a 40×44 box, scaled as it grows. */
-const memoryLeak: EnemyBody = (g, a0) => {
-  g.scale(a0.w / 40, a0.h / 44);
-  const a = { ...a0, w: 40, h: 44 };
-  const { t } = a;
-  const heat = (Math.sin(t * 2) + 1) / 2;
-  legs(g, a, '#3b0764', 7, 9, 5);
-  // heat waves
-  g.strokeStyle = `rgba(248,113,113,${0.2 + 0.6 * heat})`;
-  g.lineWidth = 1.5;
-  for (const x of [-6, 4]) {
+/** Memory Leak: a memory chip that heats up, walking on its pins. Drawn in a 40×44 box, scaled as it grows. */
+const memoryLeak = (d: boolean): EnemyBody => (g, a0) => {
+  const k = a0.w / 40;
+  const { t, step, atk } = a0;
+  g.save();
+  g.scale(k, k);
+  g.translate(-atk * 4, 22);
+  const heat = 0.5 + 0.5 * Math.sin(t * 1.3);
+  const fx = 0;
+  const fy = -6;
+  const A = 18;
+  const B = 16;
+  const H = 6;
+  // pins as feet (they step)
+  onFace(g, 'left', fx, fy, A, () => {
+    for (let i = 0; i < 4; i++) rect(g, 2 + i * 4.4, 0, 1.6, 4 - (i % 2 ? Math.max(0, step) : Math.max(0, -step)) * 2, '#d4d4d8');
+  });
+  onFace(g, 'right', fx, fy, B, () => {
+    for (let i = 0; i < 3; i++) rect(g, 2 + i * 4.6, 0, 1.6, 4, '#a1a1aa');
+  });
+  const chip = paletteOf('#7e22ce');
+  const hot = shade('#ef4444', -0.1);
+  const L: Look = { rich: false, p: { ...chip, top: mix(chip.top, hot, heat * 0.6) } };
+  isoBlock(g, L, fx, fy, A, B, H);
+  onFace(g, 'left', fx, fy, A, () => {
+    screen(g, 2, -5.2, 10, 4.4, '#e9d5ff', t, 0.7, false);
+    txt(g, 'RAM', 15, -3, 3, '#f3e8ff', 800);
+  });
+  const [cx, cy] = topCenter(fx, fy, A, B, H);
+  if (d) {
+    // die and traces on the top
+    poly(g, [[cx - 6, cy], [cx, cy - 3], [cx + 6, cy], [cx, cy + 3]]);
+    g.fillStyle = shade('#7e22ce', -0.5);
+    g.fill();
+    g.strokeStyle = '#d8b4fe';
+    g.lineWidth = 0.5;
     g.beginPath();
-    g.moveTo(x, -20);
-    g.quadraticCurveTo(x + 3, -23, x, -26);
-    g.quadraticCurveTo(x - 3, -29, x, -32);
+    g.moveTo(cx - 6, cy);
+    g.lineTo(cx - 11, cy + 2.5);
+    g.moveTo(cx + 6, cy);
+    g.lineTo(cx + 11, cy + 2.5);
     g.stroke();
   }
-  const rim = heat > 0.6 ? '#f87171' : '#c084fc';
-  for (let i = 0; i < 4; i++) {
-    line(g, -19, -12 + i * 6, -15, -12 + i * 6, rim, 2);
-    line(g, 15, -12 + i * 6, 19, -12 + i * 6, rim, 2);
+  // heat waves
+  g.strokeStyle = '#fb923c';
+  g.lineWidth = 1;
+  g.globalAlpha = 0.25 + heat * 0.6;
+  for (let i = -1; i <= 1; i++) {
+    const x = cx + i * 6;
+    const rise = (t * 8 + i * 3) % 6;
+    g.beginPath();
+    g.moveTo(x, cy - 3 - rise);
+    g.quadraticCurveTo(x + 2, cy - 6 - rise, x, cy - 9 - rise);
+    g.quadraticCurveTo(x - 2, cy - 12 - rise, x, cy - 15 - rise);
+    g.stroke();
   }
-  rr(g, -15, -17, 30, 28, 3);
-  paint(g, '#1e1b2e', rim, 1.8);
-  face(g, -11, -13, 22, 9, '#e9d5ff', t, 0.4, '#3b0764');
-  txt(g, 'MEM', 0, 3, 7, rim, 800);
+  g.globalAlpha = 1;
+  g.restore();
 };
 
-export const ENEMY_ART: Record<EnemyType, EnemyBody> = {
+/** Mixes two #rrggbb colours (k = 0 → a, 1 → b). */
+function mix(a: string, b: string, k: number): string {
+  const ch = (hex: string, i: number): number => parseInt(hex.slice(i, i + 2), 16);
+  return `#${[1, 3, 5].map((i) => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/* ======================= attack ======================= */
+
+/**
+ * Attack, the same for every threat: it rams toward the defense on its left (with a small
+ * squash). Own moves (arm, plunger, lock…) come on top.
+ */
+export const withAttack = (body: EnemyBody): EnemyBody => (g, a) => {
+  const lunge = a.atk * 12;
+  g.save();
+  g.translate(-lunge, 0);
+  g.translate(0, a.h / 2);
+  g.scale(1 + a.atk * 0.08, 1 - a.atk * 0.08);
+  g.translate(0, -a.h / 2);
+  body(g, a);
+  g.restore();
+};
+
+type Pt = [number, number];
+const YELLOW = '#facc15';
+const YELLOW_DARK = '#a16207';
+
+/* ======================= Black Friday: wire cart ======================= */
+
+/**
+ * Cart space: u runs along the cart (0 = nose on the left, grows to the handle on the right and back),
+ * v across it, z up. The long side (v = 0) faces the viewer on the left, like the face of every threat.
+ */
+function cartIso(ox: number, oy: number): (u: number, v: number, z: number) => Pt {
+  return (u, v, z) => [ox - (48 - u) + v, oy - (48 - u) * 0.5 - v * 0.5 - z];
+}
+
+function path(g: G, pts: Pt[], close = true): void {
+  g.beginPath();
+  pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+  if (close) g.closePath();
+}
+
+function strokeLine(g: G, a: Pt, b: Pt, color: string, lw: number): void {
+  g.strokeStyle = color;
+  g.lineWidth = lw;
+  g.beginPath();
+  g.moveTo(a[0], a[1]);
+  g.lineTo(b[0], b[1]);
+  g.stroke();
+}
+
+/** A caster wheel standing at a cart point. */
+function caster(g: G, [x, y]: Pt, r: number, t: number): void {
+  g.beginPath();
+  g.ellipse(x, y - r, r * 0.75, r, -0.45, 0, TAU);
+  g.fillStyle = '#111827';
+  g.fill();
+  g.lineWidth = 1.2;
+  g.strokeStyle = YELLOW;
+  g.stroke();
+  const ang = -t * 5;
+  strokeLine(g, [x, y - r], [x + Math.cos(ang) * r * 0.6, y - r + Math.sin(ang) * r * 0.8], YELLOW, 0.8);
+}
+
+interface CartOpts {
+  t: number;
+  atk: number;
+  /** Big hanging price tag (B) instead of the sign on a pole (A). */
+  tag: boolean;
+}
+
+function wireCart(g: G, h: number, o: CartOpts): void {
+  const { t, atk } = o;
+  const P = cartIso(14, h / 2);
+  // basket: bottom smaller than the top rim, nose lower than the back
+  const B = { u0: 8, u1: 42, v0: 2, v1: 24, z: 20 };
+  const T = { u0: 0, u1: 50, v0: 0, v1: 26, z: 52 };
+  const bot = (u: number, v: number): Pt => P(u, v, B.z);
+  const top = (u: number, v: number): Pt => P(u, v, T.z);
+  const lerp = (a: Pt, b: Pt, k: number): Pt => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+
+  // wheels at the back first, then the frame under the basket
+  caster(g, P(B.u1, B.v1, 0), 4.5, t);
+  caster(g, P(B.u0, B.v1, 0), 4.5, t);
+  for (const [u, v] of [[B.u0, B.v0], [B.u1, B.v0], [B.u0, B.v1], [B.u1, B.v1]] as Pt[]) strokeLine(g, P(u, v, 9), P(u, v, B.z), YELLOW, 2);
+  path(g, [P(B.u0, B.v0, 9), P(B.u1, B.v0, 9), P(B.u1, B.v1, 9), P(B.u0, B.v1, 9)]);
+  g.strokeStyle = YELLOW;
+  g.lineWidth = 2;
+  g.stroke();
+
+  // far panels (back side and the handle end): dark, see-through
+  const far = (pts: Pt[]): void => {
+    path(g, pts);
+    g.fillStyle = 'rgba(15,23,42,0.85)';
+    g.fill();
+    g.strokeStyle = YELLOW_DARK;
+    g.lineWidth = 1;
+    g.stroke();
+  };
+  far([bot(B.u0, B.v1), bot(B.u1, B.v1), top(T.u1, T.v1), top(T.u0, T.v1)]);
+  far([bot(B.u1, B.v0), bot(B.u1, B.v1), top(T.u1, T.v1), top(T.u1, T.v0)]);
+  // basket floor
+  path(g, [bot(B.u0, B.v0), bot(B.u1, B.v0), bot(B.u1, B.v1), bot(B.u0, B.v1)]);
+  g.fillStyle = '#0f172a';
+  g.fill();
+
+  // the orders inside: request robots on a pile, the far ones first
+  const pile: [number, number, number][] = [
+    [14, 18, 30], [28, 18, 30], [40, 18, 30], [8, 9, 26], [22, 9, 26], [36, 9, 26],
+  ];
+  pile.forEach(([u, v, z], i) => {
+    const [x, y] = P(u, v, z);
+    g.save();
+    g.translate(x, y - atk * 4 + Math.sin(t * 6 + i) * 0.8);
+    g.scale(0.5, 0.5);
+    requestBot(g, t + i * 0.3, 0, 0, '#64748b', '#7dd3fc', '', i + 0.5, false);
+    g.restore();
+  });
+
+  // near panels: wire mesh you can see through
+  const mesh = (a0: Pt, a1: Pt, b0: Pt, b1: Pt, n: number): void => {
+    // a0-a1 = bottom edge, b0-b1 = top edge
+    path(g, [a0, a1, b1, b0]);
+    g.fillStyle = 'rgba(250,204,21,0.08)';
+    g.fill();
+    for (let i = 1; i < n; i++) strokeLine(g, lerp(a0, a1, i / n), lerp(b0, b1, i / n), 'rgba(250,204,21,0.55)', 0.8);
+    for (const k of [0.33, 0.66]) strokeLine(g, lerp(a0, b0, k), lerp(a1, b1, k), 'rgba(250,204,21,0.55)', 0.8);
+    path(g, [a0, a1, b1, b0]);
+    g.strokeStyle = YELLOW;
+    g.lineWidth = 1.6;
+    g.stroke();
+  };
+  mesh(bot(B.u0, B.v0), bot(B.u0, B.v1), top(T.u0, T.v0), top(T.u0, T.v1), 5);
+  mesh(bot(B.u0, B.v0), bot(B.u1, B.v0), top(T.u0, T.v0), top(T.u1, T.v0), 8);
+
+  // Tráfico band on the long side
+  const bl = lerp(bot(B.u0, B.v0), top(T.u0, T.v0), 0.42);
+  const br = lerp(bot(B.u1, B.v0), top(T.u1, T.v0), 0.42);
+  g.save();
+  g.translate(bl[0], bl[1]);
+  const len = Math.hypot(br[0] - bl[0], br[1] - bl[1]);
+  g.transform(1, (br[1] - bl[1]) / (br[0] - bl[0]), 0, 1, 0, 0);
+  band(g, len * 0.08, -4, len * 0.84, 8, 'BLACK FRIDAY', 5.4);
+  g.restore();
+
+  // front wheels
+  caster(g, P(B.u0, B.v0, 0), 4.5, t);
+  caster(g, P(B.u1, B.v0, 0), 4.5, t);
+
+  // push handle at the back: two bars up from the rim, and the grip across
+  const hz = T.z + 12;
+  const hu = T.u1 + 8;
+  strokeLine(g, top(T.u1, T.v0), P(hu, T.v0, hz), YELLOW, 2.2);
+  strokeLine(g, top(T.u1, T.v1), P(hu, T.v1, hz), YELLOW, 2.2);
+  strokeLine(g, P(hu, T.v0 - 2, hz), P(hu, T.v1 + 2, hz), '#dc2626', 4);
+
+  if (o.tag) {
+    // big price tag hanging from the grip on a string
+    const [sx, sy] = P(hu, T.v0 + 4, hz);
+    const swing = Math.sin(t * 2.5) * 0.12 - atk * 0.3;
+    g.save();
+    g.translate(sx, sy);
+    g.rotate(swing);
+    strokeLine(g, [0, 0], [0, 10], '#e5e7eb', 1);
+    g.translate(0, 10);
+    path(g, [[-8, 0], [8, 0], [14, 7], [14, 30], [-14, 30], [-14, 7]]);
+    g.fillStyle = '#dc2626';
+    g.fill();
+    g.strokeStyle = '#7f1d1d';
+    g.lineWidth = 1;
+    g.stroke();
+    g.beginPath();
+    g.arc(0, 5, 2, 0, TAU);
+    g.fillStyle = '#0b1220';
+    g.fill();
+    txt(g, '-70%', 0, 19, 9.5, '#ffffff', 900);
+    g.restore();
+  } else {
+    // sign on a pole, from the back corner of the rim
+    const base = top(T.u1, T.v1);
+    strokeLine(g, base, [base[0], base[1] - 30], YELLOW, 2.4);
+    g.save();
+    g.translate(base[0], base[1] - 30);
+    g.rotate(Math.sin(t * 2.5) * 0.06 - atk * 0.15);
+    path(g, [[-18, -20], [18, -20], [18, 0], [-18, 0]]);
+    g.fillStyle = '#dc2626';
+    g.fill();
+    g.strokeStyle = '#7f1d1d';
+    g.lineWidth = 1;
+    g.stroke();
+    txt(g, '-70%', 0, -10, 12, '#ffffff', 900);
+    g.restore();
+  }
+}
+
+
+const bfPole: EnemyBody = (g, a) => wireCart(g, a.h, { t: a.t, atk: a.atk, tag: false });
+const bfTag: EnemyBody = (g, a) => wireCart(g, a.h, { t: a.t, atk: a.atk, tag: true });
+
+/** Fake request left by a DDoS: a small red request robot. */
+const fakeRequest = (d: boolean): EnemyBody => (g, a) => {
+  g.save();
+  g.translate(0, a.h / 2);
+  g.scale(0.62, 0.62);
+  requestBot(g, a.t, a.step, a.atk, '#b91c1c', '#fecaca', d ? 'GET' : '', 0.3, d);
+  g.restore();
+};
+
+/* ======================= tables ======================= */
+
+type Maker = (d: boolean) => EnemyBody;
+
+/** Round 5 designs (d = the "detail" look), for the picker page. */
+export const ROUND5_MAKERS: Record<EnemyType, Maker> = {
   normal,
   scraper,
   ddos,
   zeroDay,
-  blackFriday,
   sqli,
-  botnet,
-  botlet,
-  slowloris,
   ransomware,
   memoryLeak,
+  botnet,
+  botlet,
+  fakeRequest,
+  slowloris,
+  blackFriday,
+};
+
+/** Round 6 designs, for the picker page. */
+export const ROUND6 = { bfPole: withAttack(bfPole), bfTag: withAttack(bfTag) };
+
+/** DDoS with 4 robots (chosen in round 6). */
+const DDOS_4: [number, number, number][] = [[22, -6, 0.62], [-6, -12, 0.64], [16, 18, 0.68], [-14, 14, 0.72]];
+
+export const ENEMY_ART: Record<EnemyType, EnemyBody> = {
+  normal: withAttack(normal(false)),
+  scraper: withAttack(scraper(false)),
+  ddos: withAttack(ddos(false, DDOS_4)),
+  zeroDay: withAttack(zeroDay(false)),
+  blackFriday: ROUND6.bfPole,
+  sqli: withAttack(sqli(false)),
+  botnet: withAttack(botnet(false)),
+  botlet: withAttack(botlet(false)),
+  fakeRequest: withAttack(fakeRequest(false)),
+  slowloris: withAttack(slowloris(false)),
+  ransomware: withAttack(ransomware(false)),
+  memoryLeak: withAttack(memoryLeak(false)),
 };
 
 /** Attack pulse: quick push (0 → 1), slower return. */

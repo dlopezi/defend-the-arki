@@ -2,7 +2,7 @@ import type { DefenseType, EnemyType } from '../config';
 import { pick, type Lang } from '../i18n';
 
 /** Every element that has a concept card. Botlets share the Botnet card. */
-export type ConceptId = DefenseType | Exclude<EnemyType, 'botlet'> | 'rollback';
+export type ConceptId = DefenseType | Exclude<EnemyType, 'botlet' | 'fakeRequest'> | 'rollback';
 
 export interface Link {
   label: string;
@@ -403,5 +403,5 @@ export function concept(id: ConceptId): Concept {
 }
 
 export function conceptOf(type: DefenseType | EnemyType): ConceptId {
-  return type === 'botlet' ? 'botnet' : type;
+  return type === 'botlet' ? 'botnet' : type === 'fakeRequest' ? 'ddos' : type;
 }

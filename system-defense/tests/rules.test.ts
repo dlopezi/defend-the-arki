@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BREACH_X, colX, DEFENSES, GRID_X, LANES, POD_RESTART_TIME, START_CU, WORKER_AMOUNT, WORKER_FIRST } from '../src/config';
+import { BREACH_X, colX, COLS, DEFENSES, ENEMIES, GRID_RIGHT, GRID_X, LANES, POD_RESTART_TIME, START_CU, WORKER_AMOUNT, WORKER_FIRST } from '../src/config';
 import { canUpgrade } from '../src/systems/InputSystem';
 import { seedRandom, Sim } from './harness';
 
@@ -63,6 +63,20 @@ describe('economy', () => {
 });
 
 describe('defenses', () => {
+  it('do not hurt a threat before it touches the board', () => {
+    const sim = new Sim('monolith', { quiet: true });
+    sim.ctx.cu = 1000;
+    sim.place('loadBalancer', 2, COLS - 1, { ignoreCooldown: true });
+    const e = sim.spawn('normal', 2, GRID_RIGHT + 70);
+    const front = () => sim.x(e) - ENEMIES.normal.width / 2;
+    sim.runUntil(() => front() <= GRID_RIGHT + 1, 10);
+    const h = sim.world.req(e, 'health');
+    expect(h.hp).toBe(h.max);
+    // once it is on the board, it gets hit
+    sim.run(2);
+    expect(h.hp).toBeLessThan(h.max);
+  });
+
   it('a Load Balancer kills Tráfico Normal in its lane only', () => {
     const sim = new Sim('monolith', { quiet: true });
     sim.place('loadBalancer', 2, 0);
@@ -193,8 +207,27 @@ describe('threats', () => {
     expect(bots.length).toBe(3);
   });
 
+  it('Black Friday splits into 6 Normal Traffic requests when it dies', () => {
+    const sim = new Sim('monolith', { quiet: true });
+    const e = sim.spawn('blackFriday', 2, colX(6));
+    sim.world.req(e, 'health').hp = 0;
+    sim.step();
+    const left = sim.enemies().map((x) => sim.world.req(x, 'enemy').type);
+    expect(left.filter((t) => t === 'normal').length).toBe(6);
+    expect(left).not.toContain('blackFriday');
+  });
+
+  it('a DDoS splits into 4 fake requests when it dies', () => {
+    const sim = new Sim('monolith', { quiet: true });
+    const e = sim.spawn('ddos', 2, colX(6));
+    sim.world.req(e, 'health').hp = 0;
+    sim.step();
+    const left = sim.enemies().map((x) => sim.world.req(x, 'enemy').type);
+    expect(left.filter((t) => t === 'fakeRequest').length).toBe(4);
+  });
+
   it('every threat type moves toward the base', () => {
-    const types = ['normal', 'scraper', 'ddos', 'zeroDay', 'blackFriday', 'sqli', 'botnet', 'botlet', 'slowloris', 'ransomware', 'memoryLeak'] as const;
+    const types = ['normal', 'scraper', 'ddos', 'zeroDay', 'blackFriday', 'sqli', 'botnet', 'botlet', 'fakeRequest', 'slowloris', 'ransomware', 'memoryLeak'] as const;
     for (const type of types) {
       const sim = new Sim('monolith', { quiet: true });
       const e = sim.spawn(type, 2, colX(6));

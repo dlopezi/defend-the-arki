@@ -1493,9 +1493,9 @@ button {
   .view-game .board > * {
     grid-area: 1 / 1;
   }
-  /* as big as the space allows, keeping the board shape (1130 × 500) */
+  /* as big as the space allows, keeping the board shape (CANVAS_W / CANVAS_H, set by Game.ts) */
   .view-game .board canvas {
-    width: min(100cqw, 100cqh * 2.26);
+    width: min(100cqw, 100cqh * var(--board-ratio));
     height: auto;
     border: 1px solid var(--line);
     border-radius: 10px;

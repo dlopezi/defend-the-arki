@@ -1,4 +1,4 @@
-import { GRID_RIGHT, LANES, laneY, SLOWLORIS_FACTOR } from '../config';
+import { GRID_RIGHT, LANES, laneY, onBoard, SLOWLORIS_FACTOR } from '../config';
 import type { System } from '../ecs/System';
 import { createProjectile } from '../game/factories';
 import { sound } from '../game/GameContext';
@@ -7,12 +7,12 @@ import { sound } from '../game/GameContext';
 export const ShootingSystem: System = {
   name: 'shooting',
   update(world, ctx, dt) {
-    // Rightmost visible threat per lane (cheap "is anything ahead?" test) and Slowloris lanes.
+    // Rightmost threat on the board per lane (cheap "is anything ahead?" test) and Slowloris lanes.
     const maxX: number[] = Array.from({ length: LANES }, () => -Infinity);
     ctx.laneThrottled.fill(false);
     for (const e of world.query('enemy', 'transform', 'lane')) {
       const x = world.req(e, 'transform').x;
-      if (x > GRID_RIGHT + 50) continue; // not on screen yet
+      if (!onBoard(x, world.req(e, 'enemy').width)) continue; // still in the incoming strip
       const lane = world.req(e, 'lane').lane;
       if (x > maxX[lane]) maxX[lane] = x;
       if (world.req(e, 'enemy').type === 'slowloris' && x < GRID_RIGHT) ctx.laneThrottled[lane] = true;

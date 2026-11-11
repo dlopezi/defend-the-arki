@@ -27,6 +27,8 @@ export interface RoundRow {
   options: RoundOption[];
   featured?: boolean;
   extra?: string;
+  /** Two big options that fill the row (no empty column). */
+  pair?: boolean;
 }
 export interface RoundGroup {
   title: string;
@@ -66,6 +68,7 @@ const css = `
 .round .row { background: var(--panel2); }
 .round .row .opt { background: var(--panel); }
 .round .row.two { grid-template-columns: 190px repeat(2, 1fr) 1fr; }
+.round .row.pair { grid-template-columns: 190px repeat(2, 1fr); }
 .round .minis { display: flex; gap: 10px; flex-wrap: wrap; }
 .round .mini { display: flex; flex-direction: column; gap: 6px; width: 200px; padding: 10px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; }
 .round .mini strong { font-size: 14px; }
@@ -73,7 +76,7 @@ const css = `
 .round .note:focus { outline: none; border-color: #38bdf8; }
 .round .note.general { min-height: 40px; margin: 0 0 4px; }
 .round .general-label { display: block; margin: 0 0 4px; font: 700 12px var(--mono); color: #cbd5e1; }
-@media (max-width: 820px) { .round .row.two { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 820px) { .round .row.two, .round .row.pair { grid-template-columns: 1fr 1fr; } }
 `;
 let cssAdded = false;
 
@@ -256,7 +259,7 @@ export function mountRoundSection(container: HTMLElement, cfg: RoundConfig, onCh
       const spec = ENEMIES[r.type];
       const big = r.options.filter((o) => !o.small);
       const row = document.createElement('div');
-      row.className = `row${r.featured ? ' featured' : ''}${big.length === 2 ? ' two' : ''}`;
+      row.className = `row${r.featured ? ' featured' : ''}${r.pair ? ' pair' : big.length === 2 ? ' two' : ''}`;
       const info = document.createElement('div');
       info.className = 'info';
       info.innerHTML = `<strong style="color:${spec.color}">${spec.name}</strong><span class="desc">${spec.desc}${r.extra ?? ''}</span>`;
