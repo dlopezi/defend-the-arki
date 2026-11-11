@@ -9,7 +9,10 @@
 
 ## Pointers
 
+- The game is the Vite app in `system-defense/`. Read `docs/agents/running-the-game.md` before starting the dev server, running checks or taking screenshots.
 - Levels: read `docs/agents/adding-a-level.md` before adding or changing a level.
+- Art: read `docs/agents/art-prototypes.md` before drawing or changing defense or threat art.
+- Release: read `docs/agents/release.md` when the user asks to release or publish a version.
 
 ## Agent skills
 
