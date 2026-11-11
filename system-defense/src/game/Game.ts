@@ -80,6 +80,8 @@ export class Game {
     board.className = 'board';
     this.canvas = document.createElement('canvas');
     this.canvas.style.aspectRatio = `${CANVAS_W} / ${CANVAS_H}`;
+    // the phone layout sizes the board from its height too (style.css)
+    this.canvas.style.setProperty('--board-ratio', String(CANVAS_W / CANVAS_H));
     board.append(this.canvas, this.overlays.root);
     shell.append(this.overlays.home, this.hud.root, board, this.overlays.concept, this.rotateHint());
     root.append(shell);
