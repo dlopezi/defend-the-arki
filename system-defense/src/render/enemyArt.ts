@@ -911,21 +911,6 @@ const fakeRequest = (d: boolean): EnemyBody => (g, a) => {
   g.restore();
 };
 
-/**
- * Black Friday's cart is taller than a lane (sign, pile and wheels): scale it so it stays inside
- * its lane (about y = -46 … 47), keeping the wheels on the ground.
- */
-const fitLane = (body: EnemyBody): EnemyBody => (g, a) => {
-  const k = 0.74;
-  const y0 = -10;
-  g.save();
-  g.translate(0, y0);
-  g.scale(k, k);
-  g.translate(0, -y0);
-  body(g, a);
-  g.restore();
-};
-
 /* ======================= tables ======================= */
 
 type Maker = (d: boolean) => EnemyBody;
@@ -957,7 +942,7 @@ export const ENEMY_ART: Record<EnemyType, EnemyBody> = {
   scraper: withAttack(scraper(false)),
   ddos: withAttack(ddos(false, DDOS_4)),
   zeroDay: withAttack(zeroDay(false)),
-  blackFriday: fitLane(ROUND6.bfPole),
+  blackFriday: ROUND6.bfPole,
   sqli: withAttack(sqli(false)),
   botnet: withAttack(botnet(false)),
   botlet: withAttack(botlet(false)),

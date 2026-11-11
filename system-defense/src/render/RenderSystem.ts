@@ -306,8 +306,8 @@ export class RenderSystem {
         const p = Math.min(1, j.t / j.duration);
         jumpHeight = Math.sin(p * Math.PI) * 70;
       }
-      // small threats stand on the lane's ground line (Black Friday's art already fits its lane)
-      const yOffset = en.type === 'botlet' || en.type === 'fakeRequest' ? 12 : 0;
+      // the boss is taller than a lane (it may use the board margin); small threats stand on the lane's ground line
+      const yOffset = en.type === 'blackFriday' ? -12 : en.type === 'botlet' || en.type === 'fakeRequest' ? 12 : 0;
       drawEnemy(g, en.type, t.x, t.y + yOffset, en.width, en.height, time, {
         flash: h.flash,
         slowed: world.has(e, 'slowed'),

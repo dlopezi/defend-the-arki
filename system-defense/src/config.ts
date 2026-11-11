@@ -8,10 +8,12 @@ export const LANES = 5;
 /** Base area on the left. It also holds the Rollback column next to the grid. */
 export const BASE_W = 140;
 export const GRID_X = BASE_W;
-export const GRID_Y = 0;
+/** Empty space above and below the lanes, so the Black Friday boss (taller than a lane) is not cut in the first and last lanes. */
+export const BOARD_MARGIN = 24;
+export const GRID_Y = BOARD_MARGIN;
 export const GRID_RIGHT = GRID_X + COLS * CELL_W;
 export const CANVAS_W = GRID_RIGHT + 90;
-export const CANVAS_H = GRID_Y + LANES * CELL_H;
+export const CANVAS_H = GRID_Y + LANES * CELL_H + BOARD_MARGIN;
 /** An enemy whose center passes this x has crossed the left limit. */
 export const BREACH_X = GRID_X - 18;
 /** Where an unused Rollback waits (between the base and the grid). */
