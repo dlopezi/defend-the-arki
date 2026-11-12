@@ -1,15 +1,15 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, TOTAL_WAVES, type Mode } from '../config';
+import { MODE_ORDER, MODES, type Mode } from '../config';
 import type { SoundName } from '../game/GameContext';
 import { clearRecords, describeRecord, loadRecords } from '../game/records';
 import { lang, setLang, t, type Lang } from '../i18n';
 import { concept, type ConceptId } from '../learn/concepts';
+import { guideEntries, type GuideTab } from '../learn/guide';
 import { fitCanvas, loop } from './anim';
 import { drawArena } from './homeArena';
 import { HOWTO_STEPS, SCENE_H, SCENE_W } from './howtoScenes';
-import { mountFeedbackForm } from './FeedbackForm';
 import { drawConceptIcon } from './icons';
 
-export type HomeScreen = 'main' | 'levels' | 'guide' | 'howto' | 'options' | 'feedback';
+export type HomeScreen = 'main' | 'levels' | 'guide' | 'howto' | 'options';
 
 export interface HomeCallbacks {
   onStart(mode: Mode): void;
@@ -20,7 +20,8 @@ export interface HomeCallbacks {
   getMuted(): boolean;
   toggleMute(): void;
   resetSeen(): void;
-  openConcept(id: ConceptId): void;
+  /** Opens the Feedback modal over the title screen. */
+  openFeedback(): void;
   playSound(name: SoundName): void;
 }
 
@@ -56,8 +57,6 @@ function screenTitle(screen: Exclude<HomeScreen, 'main'>): string {
       return t('How to play', 'Cómo jugar');
     case 'options':
       return t('Options', 'Opciones');
-    case 'feedback':
-      return 'Feedback';
   }
 }
 
@@ -78,13 +77,16 @@ function esc(text: string): string {
 
 /**
  * Start view, organized like a game menu:
- * main title screen -> Play (levels) · Guide (codex) · How to play · Options · Feedback.
+ * main title screen -> Play (levels) · Guide (list + card) · How to play · Options.
+ * Feedback opens as a modal over the title screen (see Overlays).
  */
 export class HomeMenu {
   readonly el: HTMLElement;
   private readonly cb: HomeCallbacks;
   private screen: HomeScreen = 'main';
-  private guideTab: 'defenses' | 'threats' = 'defenses';
+  private guideTab: GuideTab = 'defenses';
+  /** Element shown on the Guide card, per tab. */
+  private readonly guideSel: Record<GuideTab, ConceptId> = { defenses: 'worker', threats: 'normal' };
   private confirmClear = false;
   private notice = '';
   /** Bumped on every render: the animation loop of an older render stops. */
@@ -95,6 +97,8 @@ export class HomeMenu {
   private started = readStarted();
   /** When the title screen was shown (seconds): the characters walk in from there. */
   private introStart = -1;
+  /** With "reduce motion": draws the still frame again (after the Guide card changes). */
+  private paintStill: (() => void) | null = null;
 
   constructor(cb: HomeCallbacks) {
     this.cb = cb;
@@ -159,20 +163,10 @@ export class HomeMenu {
   private render(): void {
     const body = this.screen === 'main' ? this.mainScreen() : this.subScreen(this.screen);
     this.el.innerHTML = `<div class="panel home-panel screen-${this.screen}">${body}</div>`;
-    const feedback = this.el.querySelector<HTMLElement>('.feedback-host');
-    if (feedback) {
-      mountFeedbackForm(feedback, {
-        getGameInfo: () => {
-          // A game left paused with "Menu" is the one the player talks about.
-          const s = this.cb.getSuspended();
-          if (!s) return { level: 'none' };
-          const spec = MODES[s.mode];
-          return { level: `Level ${spec.level} · ${spec.name}`, wave: `${s.wave}/${TOTAL_WAVES}` };
-        },
-        doneLabel: t('Back to the menu', 'Volver al menú'),
-        onDone: () => this.show('main'),
-      });
-    }
+    // Guide on a phone: the list is a row, so it scrolls to show the chosen element.
+    const list = this.el.querySelector<HTMLElement>('.codex');
+    const chosen = list?.querySelector<HTMLElement>('.codex-item.active');
+    if (list && chosen) list.scrollLeft = chosen.offsetLeft - list.offsetLeft - 8;
     this.bind();
     this.animate();
   }
@@ -185,9 +179,9 @@ export class HomeMenu {
     const gen = ++this.generation;
     this.active.clear();
     const arena = this.el.querySelector<HTMLCanvasElement>('canvas.arena');
-    const icons = [...this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-icon]')];
+    const hasIcons = this.el.querySelector('canvas[data-icon]') !== null;
     const scenes = [...this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-scene]')];
-    if (!arena && icons.length === 0 && scenes.length === 0) return;
+    if (!arena && !hasIcons && scenes.length === 0) return;
     let still = false;
     let noHover = false;
     try {
@@ -203,10 +197,12 @@ export class HomeMenu {
         const g = w > 0 && h > 0 ? fitCanvas(arena, w, h) : null;
         if (g) drawArena(g, w, h, t, still ? 99 : t - this.introStart);
       }
-      icons.forEach((c, i) => {
+      // Read every frame: the Guide card swaps its picture when another element is chosen.
+      this.el.querySelectorAll<HTMLCanvasElement>('canvas[data-icon]').forEach((c, i) => {
         const id = c.dataset.icon as ConceptId;
-        // Touch screens have no hover, so every character moves.
-        drawConceptIcon(c, id, 80, t + i * 0.37, noHover || this.active.has(id));
+        // Touch screens have no hover, so every character moves. The card's picture always acts.
+        const acting = noHover || c.dataset.acting === '1' || this.active.has(id);
+        drawConceptIcon(c, id, Number(c.dataset.size) || 80, t + i * 0.37, acting);
       });
       scenes.forEach((c) => {
         const step = HOWTO_STEPS[Number(c.dataset.scene)];
@@ -215,9 +211,11 @@ export class HomeMenu {
       });
     };
     if (still) {
+      this.paintStill = () => frame(1.2);
       requestAnimationFrame(() => frame(1.2));
       return;
     }
+    this.paintStill = null;
     loop(() => gen === this.generation && this.el.isConnected && this.el.offsetParent !== null, frame);
   }
 
@@ -302,9 +300,6 @@ export class HomeMenu {
       case 'options':
         content = this.optionsScreen();
         break;
-      case 'feedback':
-        content = '<div class="feedback-host"></div>';
-        break;
     }
     return `
       <header class="screen-head">
@@ -333,26 +328,69 @@ export class HomeMenu {
   }
 
   private guideScreen(): string {
-    const items: { id: ConceptId; name: string; sub: string; color: string; hotkey?: string }[] =
-      this.guideTab === 'defenses'
-        ? [
-            ...DEFENSE_ORDER.map((d) => ({ id: d as ConceptId, name: DEFENSES[d].name, sub: `${DEFENSES[d].cost} CU`, hotkey: DEFENSES[d].hotkey, color: DEFENSES[d].color })),
-            { id: 'rollback', name: 'Rollback', sub: t('Free · levels 2 and 3', 'Gratis · niveles 2 y 3'), color: '#22d3ee' },
-          ]
-        : ENEMY_ORDER.map((e) => ({ id: e as ConceptId, name: ENEMIES[e].name, sub: ENEMIES[e].desc, color: ENEMIES[e].color }));
-    const grid = items
+    const entries = guideEntries(this.guideTab);
+    const sel = this.guideSel[this.guideTab];
+    const list = entries
       .map(
-        (it) => `<button class="codex-item" data-concept="${it.id}" type="button" style="--accent:${it.color}" title="${esc(concept(it.id).real)}">
-          <canvas class="codex-icon" data-icon="${it.id}"></canvas>
-          <strong>${esc(it.name)}</strong>
-          <span>${esc(it.sub)}${it.hotkey ? `<span class="no-touch"> · ${t('key', 'tecla')} ${esc(it.hotkey)}</span>` : ''}</span>
+        (it) => `<button class="codex-item${it.id === sel ? ' active' : ''}" data-concept="${it.id}" type="button" style="--accent:${it.color}" aria-pressed="${it.id === sel}">
+          <canvas class="codex-icon" data-icon="${it.id}" data-size="44" width="44" height="44" style="width:44px;height:44px" aria-hidden="true"></canvas>
+          <span class="codex-text"><strong>${esc(it.name)}</strong><span>${esc(it.sub ?? it.play)}</span></span>
         </button>`,
       )
       .join('');
-    return `<div class="codex">${grid}</div><p class="note"><span class="no-touch">${t('Hover over them to see them in action. ', 'Pasa el ratón por encima para verlos en acción. ')}</span>${t(
-      'Press an element to see its card: what it is in real life and how it compares to the game.',
-      'Pulsa un elemento para ver su ficha: qué es en la vida real y en qué se parece al juego.',
-    )}</p>`;
+    return `<p class="guide-hint">👉 ${t('Choose an element from the list to read its card.', 'Elige un elemento de la lista para leer su ficha.')}</p>
+      <div class="guide">
+        <div class="codex" aria-label="${this.guideTab === 'defenses' ? t('Defenses', 'Defensas') : t('Threats', 'Amenazas')}">${list}</div>
+        <article class="guide-card" aria-live="polite">${this.guideCard(sel)}</article>
+      </div>`;
+  }
+
+  /** The card of one Guide element: what it does in the game, then real life. */
+  private guideCard(id: ConceptId): string {
+    const entries = guideEntries(this.guideTab);
+    const it = entries.find((e) => e.id === id) ?? entries[0];
+    const c = concept(it.id);
+    const isDefense = it.kind === 'defense';
+    const meta = [isDefense ? t('Defense', 'Defensa') : t('Threat', 'Amenaza'), it.sub].filter(Boolean).join(' · ');
+    const key = it.hotkey ? `<span class="guide-chip no-touch">${t('Key', 'Tecla')} ${esc(it.hotkey)}</span>` : '';
+    const upgrade = it.upgrade ? `<h4>${t('Upgrade', 'Mejora')}</h4><p>${esc(it.upgrade)}</p>` : '';
+    const toolsLabel = isDefense ? t('Real tools', 'Herramientas reales') : t('How it is stopped in real life', 'Cómo se defiende en la vida real');
+    return `<div class="guide-top" style="--accent:${it.color}">
+        <div class="guide-art"><canvas data-icon="${it.id}" data-size="150" data-acting="1" width="150" height="150" style="width:150px;height:150px" aria-hidden="true"></canvas></div>
+        <div class="guide-info">
+          <h3 class="guide-name">${esc(c.title)}</h3>
+          <p class="guide-meta">${esc(meta)}</p>
+          <h4>${t('In the game', 'En el juego')}</h4>
+          <p>${esc(it.play)}</p>
+          ${upgrade}
+          ${key}
+        </div>
+      </div>
+      <div class="guide-real">
+        <h4 class="guide-section">${t('In real life', 'En la vida real')}</h4>
+        <p>${esc(c.real)}</p>
+        <h4>${toolsLabel}</h4>
+        <p>${c.tools.map(esc).join(' · ')}</p>
+        <h4>${t('Same as in the game', 'Igual que en el juego')}</h4>
+        <p>${esc(c.same)}</p>
+        <h4>${t('Different from the game', 'Distinto del juego')}</h4>
+        <p>${esc(c.diff)}</p>
+        <p class="guide-read"><a href="${esc(c.read.url)}" target="_blank" rel="noopener noreferrer">${t('Read more:', 'Leer más:')} ${esc(c.read.label)} ↗</a></p>
+      </div>`;
+  }
+
+  /** Shows another element on the Guide card, without redrawing the list (focus stays). */
+  private selectGuide(id: ConceptId): void {
+    if (this.guideSel[this.guideTab] === id) return;
+    this.guideSel[this.guideTab] = id;
+    this.el.querySelectorAll<HTMLButtonElement>('.codex-item').forEach((b) => {
+      const on = b.dataset.concept === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    const card = this.el.querySelector<HTMLElement>('.guide-card');
+    if (card) card.innerHTML = this.guideCard(id);
+    this.paintStill?.();
   }
 
   private howtoScreen(): string {
@@ -427,6 +465,7 @@ export class HomeMenu {
         }
         this.cb.playSound('menuSelect');
         if (go === 'continue') this.cb.onContinue();
+        else if (go === 'feedback') this.cb.openFeedback();
         else this.show(go as HomeScreen);
       });
     });
@@ -446,13 +485,15 @@ export class HomeMenu {
     });
     this.el.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => {
       b.addEventListener('click', () => {
-        this.guideTab = b.dataset.tab as 'defenses' | 'threats';
+        this.guideTab = b.dataset.tab as GuideTab;
         this.render();
       });
     });
     this.el.querySelectorAll<HTMLButtonElement>('.codex-item').forEach((b) => {
       const id = b.dataset.concept ?? '';
-      b.addEventListener('click', () => this.cb.openConcept(id as ConceptId));
+      // Click, tap or the arrow keys (focus) choose the element shown on the card.
+      b.addEventListener('click', () => this.selectGuide(id as ConceptId));
+      b.addEventListener('focus', () => this.selectGuide(id as ConceptId));
       // under the mouse (or keyboard focus) the character acts
       b.addEventListener('pointerenter', () => this.active.add(id));
       b.addEventListener('pointerleave', () => this.active.delete(id));
