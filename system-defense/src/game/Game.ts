@@ -83,7 +83,7 @@ export class Game {
     // the phone layout sizes the board from its height too (style.css)
     this.canvas.style.setProperty('--board-ratio', String(CANVAS_W / CANVAS_H));
     board.append(this.canvas, this.overlays.root);
-    shell.append(this.overlays.home, this.hud.root, board, this.overlays.concept, this.rotateHint());
+    shell.append(this.overlays.home, this.hud.root, board, this.overlays.concept, this.overlays.feedback, this.rotateHint());
     root.append(shell);
     this.setView('home');
 
