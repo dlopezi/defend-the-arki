@@ -824,6 +824,11 @@ kbd {
   font-size: 14px;
   color: #5eead4;
 }
+.guide-keys {
+  margin-left: 8px;
+  font: 12px var(--mono);
+  color: var(--muted);
+}
 .guide {
   display: grid;
   grid-template-columns: minmax(220px, 300px) 1fr;
@@ -833,8 +838,8 @@ kbd {
 .codex {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: 4px;
+  padding: 6px;
   background: #070b17;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -843,7 +848,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 10px 4px 6px;
+  padding: 1px 10px 1px 6px;
   text-align: left;
   color: var(--text);
   background: var(--panel-2);
@@ -1075,6 +1080,26 @@ kbd {
   }
 }
 @media (max-width: 760px) {
+  /* Header: Back and title on one row, the tabs on a full row below. */
+  .screen-head {
+    grid-template-columns: auto 1fr;
+  }
+  .screen-head h2 {
+    text-align: right;
+  }
+  .head-right {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+  .head-right:empty {
+    display: none;
+  }
+  .head-right .tabs {
+    display: flex;
+  }
+  .head-right .tab {
+    flex: 1;
+  }
   /* Guide: the list becomes a row you swipe, with the card below it. */
   .guide {
     grid-template-columns: 1fr;
@@ -1657,10 +1682,6 @@ button {
   .level {
     padding: 10px 12px;
     font-size: 12px;
-  }
-  .codex {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
   }
   .steps {
     grid-template-columns: repeat(3, 1fr);

@@ -45,7 +45,7 @@ function readStarted(): boolean {
 }
 
 /** Buttons that the arrow keys move between, on each screen. */
-const NAV = '.main-menu .menu-btn, .levels .level, .codex .codex-item, .screen-head .back, .tabs .tab';
+const NAV = '.main-menu .menu-btn, .levels .level, .screen-head .back, .tabs .tab';
 
 function screenTitle(screen: Exclude<HomeScreen, 'main'>): string {
   switch (screen) {
@@ -137,6 +137,7 @@ export class HomeMenu {
       return true;
     }
     if (key === 'Escape') return this.back();
+    if (this.screen === 'guide') return this.guideKey(key);
     const dir = key === 'ArrowDown' || key === 'ArrowRight' ? 1 : key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 0;
     if (!dir) return false;
     const items = [...this.el.querySelectorAll<HTMLButtonElement>(NAV)];
@@ -146,6 +147,39 @@ export class HomeMenu {
     next.focus();
     this.cb.playSound('menuMove');
     return true;
+  }
+
+  /**
+   * Guide keys: ↑ ↓ choose the element (they stay in the list and wrap inside it),
+   * ← → switch between Defenses and Threats. Tab still reaches Back and the tabs.
+   */
+  private guideKey(key: string): boolean {
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      const next: GuideTab = this.guideTab === 'defenses' ? 'threats' : 'defenses';
+      this.cb.playSound('menuMove');
+      this.switchGuideTab(next);
+      this.focusChosen();
+      return true;
+    }
+    const dir = key === 'ArrowDown' ? 1 : key === 'ArrowUp' ? -1 : 0;
+    if (!dir) return false;
+    const items = [...this.el.querySelectorAll<HTMLButtonElement>('.codex-item')];
+    if (items.length === 0) return false;
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    // From outside the list (Back, tabs), the first press goes to the chosen element.
+    const next = i < 0 ? this.el.querySelector<HTMLButtonElement>('.codex-item.active') ?? items[0] : items[(i + dir + items.length) % items.length];
+    next.focus();
+    this.cb.playSound('menuMove');
+    return true;
+  }
+
+  private switchGuideTab(tab: GuideTab): void {
+    this.guideTab = tab;
+    this.render();
+  }
+
+  private focusChosen(): void {
+    this.el.querySelector<HTMLButtonElement>('.codex-item.active')?.focus();
   }
 
   private pressStart(): void {
@@ -333,12 +367,12 @@ export class HomeMenu {
     const list = entries
       .map(
         (it) => `<button class="codex-item${it.id === sel ? ' active' : ''}" data-concept="${it.id}" type="button" style="--accent:${it.color}" aria-pressed="${it.id === sel}">
-          <canvas class="codex-icon" data-icon="${it.id}" data-size="44" width="44" height="44" style="width:44px;height:44px" aria-hidden="true"></canvas>
+          <canvas class="codex-icon" data-icon="${it.id}" data-size="40" width="40" height="40" style="width:40px;height:40px" aria-hidden="true"></canvas>
           <span class="codex-text"><strong>${esc(it.name)}</strong><span>${esc(it.sub ?? it.play)}</span></span>
         </button>`,
       )
       .join('');
-    return `<p class="guide-hint">👉 ${t('Choose an element from the list to read its card.', 'Elige un elemento de la lista para leer su ficha.')}</p>
+    return `<p class="guide-hint">👉 ${t('Choose an element from the list to read its card.', 'Elige un elemento de la lista para leer su ficha.')}<span class="no-touch guide-keys"> ${t('↑ ↓ element · ← → tab', '↑ ↓ elemento · ← → pestaña')}</span></p>
       <div class="guide">
         <div class="codex" aria-label="${this.guideTab === 'defenses' ? t('Defenses', 'Defensas') : t('Threats', 'Amenazas')}">${list}</div>
         <article class="guide-card" aria-live="polite">${this.guideCard(sel)}</article>
@@ -485,8 +519,10 @@ export class HomeMenu {
     });
     this.el.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => {
       b.addEventListener('click', () => {
-        this.guideTab = b.dataset.tab as GuideTab;
-        this.render();
+        const tab = b.dataset.tab as GuideTab;
+        this.switchGuideTab(tab);
+        // Keep the keyboard focus on the tab that was pressed (render made new buttons).
+        this.el.querySelector<HTMLButtonElement>(`[data-tab="${tab}"]`)?.focus({ preventScroll: true });
       });
     });
     this.el.querySelectorAll<HTMLButtonElement>('.codex-item').forEach((b) => {
