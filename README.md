@@ -17,4 +17,4 @@ The game is in [`system-defense/`](system-defense/). It is TypeScript with no fr
 
 ## License
 
-[MIT](LICENSE)
+All rights reserved. See [LICENSE](LICENSE).
