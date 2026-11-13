@@ -23,7 +23,6 @@ export const onBoard = (x: number, width: number): boolean => x - width / 2 <= G
 
 export const FIXED_DT = 1 / 60;
 export const START_CU = 150;
-export const TOTAL_WAVES = 10;
 
 /* ---------- Economy ---------- */
 export const SKY_DROP_VALUE = 25;
@@ -56,6 +55,10 @@ export const ROLLBACK_SPEED = 650;
 export const POD_RESTART_TIME = 30;
 /** Multi-region: seconds until a fallen region comes back (without defenses). */
 export const REGION_RECOVERY_TIME = 45;
+/** Levels 2 to 4: at the start of this wave the game takes down part of the system by itself. */
+export const PROVIDER_FAILURE_WAVE = 3;
+/** Amber of the Provider failure (warning banner, HUD chip, lanes at risk, its card). */
+export const PROVIDER_COLOR = '#fbbf24';
 
 /* ---------- Levels ---------- */
 export type Mode = 'monolith' | 'microservices' | 'kubernetes' | 'multiRegion';
@@ -68,6 +71,8 @@ export interface ModeSpec {
   rule: string;
   /** Lanes have a one-time Rollback. */
   rollback: boolean;
+  /** Waves to win. Level 1 shows most concept cards, so it is longer. */
+  waves: number;
 }
 
 // Texts are getters: they read the current language each time (see i18n.ts).
@@ -85,6 +90,7 @@ export const MODES: Record<Mode, ModeSpec> = {
       );
     },
     rollback: false,
+    waves: 8,
   },
   microservices: {
     level: 2,
@@ -99,6 +105,7 @@ export const MODES: Record<Mode, ModeSpec> = {
       );
     },
     rollback: true,
+    waves: 5,
   },
   kubernetes: {
     level: 3,
@@ -111,6 +118,7 @@ export const MODES: Record<Mode, ModeSpec> = {
       );
     },
     rollback: true,
+    waves: 5,
   },
   multiRegion: {
     level: 4,
@@ -125,6 +133,7 @@ export const MODES: Record<Mode, ModeSpec> = {
       );
     },
     rollback: true,
+    waves: 5,
   },
 };
 

@@ -1,4 +1,4 @@
-import { COLS, DEFENSE_ORDER, LANES, START_CU, type DefenseType, type EnemyType, type Mode, type Tool } from '../config';
+import { COLS, DEFENSE_ORDER, LANES, MODES, START_CU, type DefenseType, type EnemyType, type Mode, type Tool } from '../config';
 import type { Entity } from '../ecs/World';
 import type { ConceptId } from '../learn/concepts';
 import type { Incident } from '../learn/postmortem';
@@ -59,6 +59,15 @@ export interface Banner {
 }
 
 /** Shared state ("resources" in ECS terms) that is not tied to one entity. */
+/**
+ * Provider failure of levels 2 to 4: warned in the break before its wave, then the
+ * `lanes` go down at the start of the wave ('skipped' if they would be the last ones up).
+ */
+export interface ProviderFailure {
+  state: 'waiting' | 'warned' | 'done' | 'skipped';
+  lanes: number[];
+}
+
 export interface GameContext {
   mode: Mode;
   status: Status;
@@ -94,6 +103,8 @@ export interface GameContext {
   conceptQueue: ConceptId[];
   /** Every breach, for the post-mortem. */
   incidents: Incident[];
+  /** Null in the Monolith, which has no Provider failure. */
+  provider: ProviderFailure | null;
   /** Defenses placed per type, for the retrospective. */
   placed: Record<DefenseType, number>;
   /** Defenses destroyed by threats per lane (reset when the lane falls). */
@@ -140,7 +151,7 @@ export function createContext(mode: Mode): GameContext {
       spawned: 0,
       surgeAt: 0,
       hpScale: 1,
-      next: buildWave(1),
+      next: buildWave(1, MODES[mode].waves),
     },
     time: 0,
     kills: 0,
@@ -153,6 +164,7 @@ export function createContext(mode: Mode): GameContext {
     seen: new Set(),
     conceptQueue: [],
     incidents: [],
+    provider: mode === 'monolith' ? null : { state: 'waiting', lanes: [] },
     placed,
     laneLosses: Array.from({ length: LANES }, () => 0),
   };

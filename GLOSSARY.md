@@ -26,6 +26,10 @@ _Avoid_: Zone, cluster, primary/secondary
 **Failover**:
 While a region is down, new threats arrive only in the lanes of the other region.
 
+**Provider failure**:
+A failure the game causes by itself at a set moment, with no threat involved, as when a cloud provider goes down. It takes down what a Breach would take down in that level (a service, a pod, a region), so the Player always sees how the architecture reacts. It follows the same rules as a Breach, but it never takes down the last service, pod or region still up, so the game never ends a game by itself. Levels with more than one lane unit have one; Monolith does not.
+_Avoid_: Outage, incident, chaos test
+
 ## Feedback and releases
 
 **Feedback**:

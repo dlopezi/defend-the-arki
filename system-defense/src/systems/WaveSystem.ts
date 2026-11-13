@@ -1,15 +1,17 @@
 import { t } from '../i18n';
-import { ENEMIES, LANES, TOTAL_WAVES } from '../config';
+import { ENEMIES, LANES, MODES, PROVIDER_FAILURE_WAVE } from '../config';
 import type { System } from '../ecs/System';
 import { createEnemy } from '../game/factories';
 import { pushBanner, sound, type GameContext } from '../game/GameContext';
 import { buildWave } from '../game/waves';
+import { runProviderFailure, warnProviderFailure } from '../game/providerFailure';
+import type { World } from '../ecs/World';
 
 const BREAK_TIME = 7;
 /** If a wave is not cleared after this time, the next one starts anyway (constant flow). */
 const CLEAR_TIMEOUT = 30;
 
-function startWave(ctx: GameContext): void {
+function startWave(world: World, ctx: GameContext): void {
   const w = ctx.wave;
   w.number += 1;
   const plan = w.next;
@@ -21,8 +23,9 @@ function startWave(ctx: GameContext): void {
   w.surgeAt = plan.surgeAt;
   w.spawnTimer = 1;
   w.phase = 'spawning';
-  if (w.number < TOTAL_WAVES) w.next = buildWave(w.number + 1);
-  const last = w.number === TOTAL_WAVES;
+  const total = MODES[ctx.mode].waves;
+  if (w.number < total) w.next = buildWave(w.number + 1, total);
+  const last = w.number === total;
   pushBanner(
     ctx,
     last ? t(`FINAL WAVE ${w.number}`, `OLA FINAL ${w.number}`) : `${t('WAVE', 'OLA')} ${w.number}`,
@@ -30,6 +33,16 @@ function startWave(ctx: GameContext): void {
     t(`${w.total} incoming threats`, `${w.total} amenazas entrantes`),
   );
   sound(ctx, 'wave');
+  runProviderFailure(world, ctx);
+}
+
+/** A short pause between waves. Before the Provider failure wave, it carries its warning. */
+function startBreak(ctx: GameContext): void {
+  const w = ctx.wave;
+  pushBanner(ctx, t(`WAVE ${w.number} MITIGATED`, `OLA ${w.number} MITIGADA`), '#4ade80', t(`Next wave in ${BREAK_TIME} s`, `Siguiente ola en ${BREAK_TIME} s`));
+  w.phase = 'break';
+  w.timer = BREAK_TIME;
+  warnProviderFailure(ctx);
 }
 
 function randomAliveLane(ctx: GameContext): number {
@@ -48,7 +61,7 @@ export const WaveSystem: System = {
       case 'prep':
       case 'break':
         w.timer -= dt;
-        if (w.timer <= 0) startWave(ctx);
+        if (w.timer <= 0) startWave(world, ctx);
         return;
 
       case 'spawning': {
@@ -79,17 +92,17 @@ export const WaveSystem: System = {
         w.timer -= dt;
         const remaining = world.query('enemy').length;
         if (remaining === 0) {
-          if (w.number >= TOTAL_WAVES) {
+          if (w.number >= MODES[ctx.mode].waves) {
             ctx.status = 'victory';
             ctx.endReason = t('Every wave was mitigated. The system scales.', 'Todas las olas fueron mitigadas. El sistema escala.');
             sound(ctx, 'victory');
             return;
           }
-          pushBanner(ctx, t(`WAVE ${w.number} MITIGATED`, `OLA ${w.number} MITIGADA`), '#4ade80', t(`Next wave in ${BREAK_TIME} s`, `Siguiente ola en ${BREAK_TIME} s`));
-          w.phase = 'break';
-          w.timer = BREAK_TIME;
-        } else if (w.timer <= 0 && w.number < TOTAL_WAVES) {
-          startWave(ctx);
+          startBreak(ctx);
+        } else if (w.timer <= 0 && w.number < MODES[ctx.mode].waves) {
+          // The warning needs its break, even when threats are still on the board.
+          if (ctx.provider?.state === 'waiting' && w.number === PROVIDER_FAILURE_WAVE - 1) startBreak(ctx);
+          else startWave(world, ctx);
         }
         return;
       }

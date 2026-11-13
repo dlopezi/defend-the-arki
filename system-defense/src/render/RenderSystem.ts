@@ -17,6 +17,7 @@ import {
   laneY,
   MODES,
   POD_RESTART_TIME,
+  PROVIDER_COLOR,
   REGION_RECOVERY_TIME,
   REGIONS,
   SERVICE_NAMES,
@@ -184,6 +185,18 @@ export class RenderSystem {
       g.strokeStyle = alive ? accent : restarting ? '#f59e0b' : '#7f1d1d';
       g.lineWidth = 2;
       g.stroke();
+      // Provider failure warning: the lanes at risk blink amber.
+      if (alive && ctx.provider?.state === 'warned' && ctx.provider.lanes.includes(lane)) {
+        g.save();
+        g.globalAlpha = 0.45 + 0.55 * ((Math.sin(time * 8) + 1) / 2);
+        g.strokeStyle = PROVIDER_COLOR;
+        g.lineWidth = 3;
+        g.setLineDash([6, 4]);
+        g.beginPath();
+        g.roundRect(x - 3, y - 3, w + 6, h + 6, 10);
+        g.stroke();
+        g.restore();
+      }
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.font = `700 11px ${MONO}`;

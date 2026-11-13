@@ -1,4 +1,4 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES } from '../config';
+import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, PROVIDER_COLOR, PROVIDER_FAILURE_WAVE } from '../config';
 import { t } from '../i18n';
 import { concept, type ConceptId } from './concepts';
 
@@ -7,7 +7,7 @@ export type GuideTab = 'defenses' | 'threats';
 /** One element of the Guide: a row in the list and the data of its card. */
 export interface GuideEntry {
   id: ConceptId;
-  kind: 'defense' | 'threat';
+  kind: 'defense' | 'threat' | 'event';
   name: string;
   color: string;
   /** Short line under the name: cost (defenses) or when it exists (Rollback). */
@@ -21,9 +21,8 @@ export interface GuideEntry {
 
 const ROLLBACK_COLOR = '#22d3ee';
 
-/** "Free · levels 2 to 4": the levels come from the level rules, so they stay true. */
-function rollbackLevels(): string {
-  const levels = MODE_ORDER.filter((m) => MODES[m].rollback).map((m) => MODES[m].level);
+/** "levels 2 to 4" / "levels 2 and 3" / "level 2". The levels come from the level rules, so they stay true. */
+function levelsText(levels: number[]): string {
   const first = levels[0];
   const last = levels[levels.length - 1];
   const inARow = levels.every((l, i) => l === first + i);
@@ -31,13 +30,37 @@ function rollbackLevels(): string {
   if (levels.length > 2 && inARow) list = `${first} ${t('to', 'a')} ${last}`;
   else if (levels.length > 1) list = `${levels.slice(0, -1).join(', ')} ${t('and', 'y')} ${last}`;
   else list = String(first ?? '');
-  return t(`Free · level${levels.length > 1 ? 's' : ''} ${list}`, `Gratis · nivel${levels.length > 1 ? 'es' : ''} ${list}`);
+  return t(`level${levels.length > 1 ? 's' : ''} ${list}`, `nivel${levels.length > 1 ? 'es' : ''} ${list}`);
+}
+
+const levelsWhere = (has: (m: (typeof MODE_ORDER)[number]) => boolean) => MODE_ORDER.filter(has).map((m) => MODES[m].level);
+
+/** "Free · levels 2 to 4". */
+function rollbackLevels(): string {
+  return `${t('Free', 'Gratis')} · ${levelsText(levelsWhere((m) => MODES[m].rollback))}`;
+}
+
+/** The Provider failure, last in the Threats tab: it is an event, not a threat. */
+function providerEntry(): GuideEntry {
+  const levels = levelsText(levelsWhere((m) => m !== 'monolith'));
+  return {
+    id: 'providerFailure',
+    kind: 'event',
+    name: 'Provider failure',
+    color: PROVIDER_COLOR,
+    sub: `${levels.charAt(0).toUpperCase()}${levels.slice(1)} · ${t('wave', 'ola')} ${PROVIDER_FAILURE_WAVE}`,
+    play: t(
+      `At the start of wave ${PROVIDER_FAILURE_WAVE}, the game takes down the lane with most defenses (eu-west, the larger region, in Multi-region), after a warning. It never takes down the last part still up.`,
+      `Al empezar la ola ${PROVIDER_FAILURE_WAVE}, el juego tumba el carril con más defensas (eu-west, la región grande, en Multi-región), tras un aviso. Nunca tumba lo último que queda en pie.`,
+    ),
+  };
 }
 
 /** Elements of a Guide tab, in the order of the list. Texts are in the current language. */
 export function guideEntries(tab: GuideTab): GuideEntry[] {
   if (tab === 'threats') {
-    return ENEMY_ORDER.map((e) => ({ id: e as ConceptId, kind: 'threat', name: ENEMIES[e].name, color: ENEMIES[e].color, play: ENEMIES[e].desc }));
+    const threats: GuideEntry[] = ENEMY_ORDER.map((e) => ({ id: e as ConceptId, kind: 'threat', name: ENEMIES[e].name, color: ENEMIES[e].color, play: ENEMIES[e].desc }));
+    return [...threats, providerEntry()];
   }
   const defenses: GuideEntry[] = DEFENSE_ORDER.map((d) => {
     const spec = DEFENSES[d];
