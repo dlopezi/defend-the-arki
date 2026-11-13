@@ -1,8 +1,8 @@
 import type { DefenseType, EnemyType } from '../config';
-import { pick, type Lang } from '../i18n';
+import { pick, t, type Lang } from '../i18n';
 
 /** Every element that has a concept card. Botlets share the Botnet card. */
-export type ConceptId = DefenseType | Exclude<EnemyType, 'botlet' | 'fakeRequest'> | 'rollback';
+export type ConceptId = DefenseType | Exclude<EnemyType, 'botlet' | 'fakeRequest'> | 'rollback' | 'providerFailure';
 
 export interface Link {
   label: string;
@@ -11,7 +11,8 @@ export interface Link {
 
 export interface Concept {
   title: string;
-  kind: 'defense' | 'threat';
+  /** An event is something the game does by itself (the Provider failure). */
+  kind: 'defense' | 'threat' | 'event';
   /** What it is in real systems. */
   real: string;
   /** Real tools (defenses) or real countermeasures (threats). */
@@ -44,6 +45,14 @@ export const LINKS = {
   slowloris: { label: 'Cloudflare · Slowloris DDoS attack', url: 'https://www.cloudflare.com/learning/ddos/ddos-attack-tools/slowloris/' },
   bulkhead: { label: 'Microsoft · Bulkhead pattern', url: 'https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead' },
   pods: { label: 'Kubernetes · Pod lifecycle', url: 'https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/' },
+  disasterRecovery: {
+    label: 'AWS · Disaster recovery options in the cloud',
+    url: 'https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/disaster-recovery-options-in-the-cloud.html',
+  },
+  faultIsolation: {
+    label: 'AWS · Fault isolation boundaries',
+    url: 'https://docs.aws.amazon.com/whitepapers/latest/aws-fault-isolation-boundaries/abstract-and-introduction.html',
+  },
 } satisfies Record<string, Link>;
 
 const ES: Record<ConceptId, Concept> = {
@@ -217,6 +226,15 @@ const ES: Record<ConceptId, Concept> = {
     same: 'Llega en un momento conocido y rompe lo que no está preparado.',
     diff: 'Son clientes reales: se trata de escalar, no de eliminarlos.',
     read: LINKS.overload,
+  },
+  providerFailure: {
+    title: 'Provider failure',
+    kind: 'event',
+    real: 'Tu proveedor de nube falla: cae una zona o una región entera, sin culpa tuya. Pasa en la vida real y no se puede evitar.',
+    tools: ['Multi-AZ', 'Multi-región', 'Capacidad de sobra', 'Status page'],
+    same: 'Lo que importa no es evitar el fallo, sino cómo reacciona tu arquitectura cuando pasa.',
+    diff: 'En la vida real no avisa unos segundos antes ni tiene una hora fija.',
+    read: LINKS.faultIsolation,
   },
 };
 
@@ -392,6 +410,15 @@ const EN: Record<ConceptId, Concept> = {
     diff: 'They are real customers: the job is to scale, not to remove them.',
     read: LINKS.overload,
   },
+  providerFailure: {
+    title: 'Provider failure',
+    kind: 'event',
+    real: 'Your cloud provider fails: a whole zone or region goes down, and it is not your fault. It happens in real life and you cannot prevent it.',
+    tools: ['Multi-AZ', 'Multi-region', 'Spare capacity', 'Status page'],
+    same: 'What matters is not avoiding the failure, but how your architecture reacts when it happens.',
+    diff: 'In real life it does not warn you a few seconds before, and it has no set time.',
+    read: LINKS.faultIsolation,
+  },
 };
 
 /** One table per language. Both must have every concept (checked by the tests). */
@@ -404,4 +431,16 @@ export function concept(id: ConceptId): Concept {
 
 export function conceptOf(type: DefenseType | EnemyType): ConceptId {
   return type === 'botlet' ? 'botnet' : type === 'fakeRequest' ? 'ddos' : type;
+}
+
+/** "Defense" / "Threat" / "Event": the kind of a concept, for its card. */
+export function kindLabel(kind: Concept['kind']): string {
+  if (kind === 'defense') return t('Defense', 'Defensa');
+  if (kind === 'threat') return t('Threat', 'Amenaza');
+  return t('Event', 'Evento');
+}
+
+/** Title of the real-life list of a card: tools for a defense, countermeasures otherwise. */
+export function toolsLabel(kind: Concept['kind']): string {
+  return kind === 'defense' ? t('Real tools', 'Herramientas reales') : t('How it is stopped in real life', 'Cómo se defiende en la vida real');
 }

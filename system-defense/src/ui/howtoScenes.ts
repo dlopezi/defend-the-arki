@@ -441,7 +441,7 @@ export const HOWTO_STEPS: HowtoStep[] = [
   },
   {
     get title() {
-      return tr('Rollback (levels 2 and 3)', 'Rollback (niveles 2 y 3)');
+      return tr('Rollback (levels 2 to 4)', 'Rollback (niveles 2 a 4)');
     },
     get text() {
       return tr('Each lane has a Ctrl + Z: if a threat reaches the base, it clears the lane once.', 'Cada carril tiene un Ctrl + Z: si una amenaza llega a la base, limpia el carril una vez.');
@@ -453,7 +453,10 @@ export const HOWTO_STEPS: HowtoStep[] = [
       return tr('Each level changes the Game Over', 'Cada nivel cambia el Game Over');
     },
     get text() {
-      return tr('Monolith: everything falls. Microservices: one lane falls. Kubernetes: the lane restarts by itself.', 'Monolito: cae todo. Microservicios: cae un carril. Kubernetes: el carril se reinicia solo.');
+      return tr(
+        'Monolith: everything falls. Microservices: one lane falls. Kubernetes: the lane restarts by itself. Multi-region: the whole region falls and comes back.',
+        'Monolito: cae todo. Microservicios: cae un carril. Kubernetes: el carril se reinicia solo. Multi-región: cae la región entera y vuelve.',
+      );
     },
     draw: sceneLevels,
   },

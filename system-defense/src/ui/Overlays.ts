@@ -1,8 +1,8 @@
-import { MODE_ORDER, MODES, SERVICE_NAMES, TOTAL_WAVES, type Mode } from '../config';
+import { laneName, MODE_ORDER, MODES, REGIONS, type Mode } from '../config';
 import type { GameContext, SoundName } from '../game/GameContext';
 import { onLangChange, t } from '../i18n';
-import { concept, type ConceptId, type Link } from '../learn/concepts';
-import { cause, describeIncident, levelLessonLoss, levelLessonWin, topDefenses } from '../learn/postmortem';
+import { concept, kindLabel, toolsLabel, type ConceptId, type Link } from '../learn/concepts';
+import { cause, describeIncident, levelLessonLoss, levelLessonWin, providerLesson, topDefenses, type Incident } from '../learn/postmortem';
 import { focusFeedback, mountFeedbackForm, type FeedbackGameInfo } from './FeedbackForm';
 import { HomeMenu } from './HomeMenu';
 import { loop } from './anim';
@@ -159,7 +159,7 @@ export class Overlays {
     const s = this.cb.getSuspended();
     if (!s) return { level: 'none' };
     const spec = MODES[s.mode];
-    return { level: `Level ${spec.level} · ${spec.name}`, wave: `${s.wave}/${TOTAL_WAVES}` };
+    return { level: `Level ${spec.level} · ${spec.name}`, wave: `${s.wave}/${spec.waves}` };
   }
 
   /** A key pressed on the home view (menu navigation). Returns true if it was used. */
@@ -191,20 +191,18 @@ export class Overlays {
    */
   showConcept(id: ConceptId, opts: { inGame: boolean; onClose(disableAll: boolean): void }): void {
     const c = concept(id);
-    const isDefense = c.kind === 'defense';
-    const toolsLabel = isDefense ? t('Real tools', 'Herramientas reales') : t('How it is stopped in real life', 'Cómo se defiende en la vida real');
     this.concept.innerHTML = `
-      <div class="panel concept-card ${isDefense ? 'is-defense' : 'is-threat'}" role="dialog" aria-labelledby="concept-title">
+      <div class="panel concept-card is-${c.kind}" role="dialog" aria-labelledby="concept-title">
         <div class="concept-head">
           <canvas class="concept-icon"></canvas>
           <div>
-            <span class="concept-kind">${isDefense ? t('Defense', 'Defensa') : t('Threat', 'Amenaza')}</span>
+            <span class="concept-kind">${kindLabel(c.kind)}</span>
             <h2 id="concept-title">${esc(c.title)}</h2>
           </div>
         </div>
         <h3>${t('In real life', 'En la vida real')}</h3>
         <p>${esc(c.real)}</p>
-        <h3>${toolsLabel}</h3>
+        <h3>${toolsLabel(c.kind)}</h3>
         <p class="tools">${c.tools.map((t) => `<span class="tool">${esc(t)}</span>`).join('')}</p>
         <h3>${t('Game vs reality', 'Juego vs realidad')}</h3>
         <p class="vs same">✓ <b>${t('Same:', 'Igual:')}</b> ${esc(c.same)}</p>
@@ -254,7 +252,13 @@ export class Overlays {
     const win = ctx.status === 'victory';
     const spec = MODES[ctx.mode];
     const alive = ctx.lanesAlive.filter(Boolean).length;
-    const services = ctx.mode !== 'monolith' ? `<div><span>${t('Services up', 'Servicios en pie')}</span><b>${alive}/5</b></div>` : '';
+    const regionsUp = REGIONS.filter((r) => r.lanes.every((lane) => ctx.lanesAlive[lane])).length;
+    const services =
+      ctx.mode === 'multiRegion'
+        ? `<div><span>${t('Regions up', 'Regiones en pie')}</span><b>${regionsUp}/${REGIONS.length}</b></div>`
+        : ctx.mode !== 'monolith'
+          ? `<div><span>${t('Services up', 'Servicios en pie')}</span><b>${alive}/5</b></div>`
+          : '';
     const nextMode = MODE_ORDER[MODE_ORDER.indexOf(ctx.mode) + 1];
     const nextBtn = nextMode ? `<button class="btn" data-act="next" type="button">${t('Go to Level', 'Ir al Nivel')} ${MODES[nextMode].level}</button>` : '';
     const report = win ? this.retrospective(ctx) : this.postmortem(ctx);
@@ -265,7 +269,7 @@ export class Overlays {
         <h2>${win ? t('System scaled', 'Sistema escalado') : 'SYSTEM DOWN'}</h2>
         ${newRecord ? `<p class="new-record">${t('New record!', '¡Nuevo récord!')}</p>` : ''}
         <div class="stats">
-          <div><span>${t('Wave', 'Ola')}</span><b>${ctx.wave.number}/${TOTAL_WAVES}</b></div>
+          <div><span>${t('Wave', 'Ola')}</span><b>${ctx.wave.number}/${spec.waves}</b></div>
           <div><span>${t('Threats removed', 'Amenazas eliminadas')}</span><b>${ctx.kills}</b></div>
           <div><span>Uptime</span><b>${fmtTime(ctx.time)}</b></div>
           ${services}
@@ -287,27 +291,30 @@ export class Overlays {
   }
 
   private postmortem(ctx: GameContext): string {
-    const last = ctx.incidents[ctx.incidents.length - 1];
+    // The game ends on a breach (a Provider failure never takes down the last part still up).
+    const last = ctx.incidents.findLast((i) => i.kind === 'breach');
     const level = levelLessonLoss(ctx.mode);
-    if (!last) {
-      return `<section class="report"><h3>Post-mortem</h3><p>${esc(ctx.endReason)}</p><p class="lesson"><b>${t('Lesson:', 'Lección:')}</b> ${esc(level.text)} ${link(level.read)}</p></section>`;
+    const provider = ctx.incidents.some((i) => i.kind === 'provider') ? ` ${providerLesson(ctx.mode, false)}` : '';
+    if (!last || last.kind !== 'breach') {
+      return `<section class="report"><h3>Post-mortem</h3><p>${esc(ctx.endReason)}</p><p class="lesson"><b>${t('Lesson:', 'Lección:')}</b> ${esc(level.text + provider)} ${link(level.read)}</p></section>`;
     }
     const why = cause(last.cause);
+    const note = (i: Incident) => (i.kind === 'breach' ? cause(i.cause).root : t('Not caused by a threat.', 'No la causó una amenaza.'));
     const timeline =
       ctx.incidents.length > 1
         ? `<h4>${t('Timeline', 'Cronología')}</h4><ol class="timeline">${ctx.incidents
-            .map((i) => `<li><span>${fmtTime(i.time)}</span> ${esc(SERVICE_NAMES[i.lane])}: ${esc(describeIncident(i))} <em>${esc(cause(i.cause).root)}</em></li>`)
+            .map((i) => `<li class="${i.kind}"><span>${fmtTime(i.time)}</span> ${esc(laneName(ctx.mode, i.lane))}: ${esc(describeIncident(i, ctx.mode))} <em>${esc(note(i))}</em></li>`)
             .join('')}</ol>`
         : '';
     return `
       <section class="report">
         <h3>Post-mortem</h3>
         <dl>
-          <dt>${t('Incident', 'Incidente')}</dt><dd>${esc(describeIncident(last))}</dd>
+          <dt>${t('Incident', 'Incidente')}</dt><dd>${esc(describeIncident(last, ctx.mode))}</dd>
           <dt>${t('Root cause', 'Causa raíz')}</dt><dd>${esc(why.root)}</dd>
           <dt>${t('What would have helped', 'Qué habría ayudado')}</dt><dd>${esc(why.help)}</dd>
           <dt>${t('Lesson', 'Lección')}</dt><dd>${esc(why.lesson)} ${link(why.read)}</dd>
-          <dt>${t('Architecture', 'Arquitectura')}</dt><dd>${esc(level.text)} ${link(level.read)}</dd>
+          <dt>${t('Architecture', 'Arquitectura')}</dt><dd>${esc(level.text + provider)} ${link(level.read)}</dd>
         </dl>
         ${timeline}
       </section>`;
@@ -317,13 +324,15 @@ export class Overlays {
     const lost = ctx.incidents.length;
     const level = levelLessonWin(ctx.mode, lost);
     const top = topDefenses(ctx.placed);
+    const survived = ctx.incidents.some((i) => i.kind === 'provider');
     return `
       <section class="report">
         <h3>${t('Retrospective', 'Retrospectiva')}</h3>
         <dl>
           <dt>${t('What you used most', 'Lo que más usaste')}</dt><dd>${top.length ? esc(top.join(' · ')) : t('No defense', 'Ninguna defensa')}</dd>
-          <dt>${t('Services down', 'Servicios caídos')}</dt><dd>${lost}</dd>
+          <dt>${ctx.mode === 'multiRegion' ? t('Regions down', 'Regiones caídas') : t('Services down', 'Servicios caídos')}</dt><dd>${lost}</dd>
           <dt>${t('Lesson', 'Lección')}</dt><dd>${esc(level.text)} ${link(level.read)}</dd>
+          ${survived ? `<dt>Provider failure</dt><dd>${esc(providerLesson(ctx.mode, true))}</dd>` : ''}
         </dl>
       </section>`;
   }

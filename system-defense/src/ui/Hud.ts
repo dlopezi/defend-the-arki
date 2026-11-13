@@ -1,4 +1,17 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, LANES, MODES, SERVICE_NAMES, TOTAL_WAVES, type DefenseType, type EnemyType, type Tool } from '../config';
+import {
+  DEFENSE_ORDER,
+  DEFENSES,
+  ENEMIES,
+  LANES,
+  laneName,
+  MODES,
+  REGIONS,
+  SERVICE_NAMES,
+  type DefenseType,
+  type EnemyType,
+  type Mode,
+  type Tool,
+} from '../config';
 import type { GameContext } from '../game/GameContext';
 import { countByType } from '../game/waves';
 import { onLangChange, t } from '../i18n';
@@ -48,6 +61,8 @@ export class Hud {
   private readonly modeEl: HTMLElement;
   private readonly waveEl: HTMLElement;
   private readonly waveBar: HTMLElement;
+  /** Provider failure warning, shown in the break before its wave. */
+  private readonly alertEl: HTMLElement;
   private readonly previewLabel: HTMLElement;
   private readonly previewList: HTMLElement;
   private readonly lanesEl: HTMLElement;
@@ -60,6 +75,8 @@ export class Hud {
   private readonly cards = new Map<Tool, CardRefs>();
   private lastCu = -1;
   private lastPreview = '';
+  /** Level the lane dots are labeled for (names and grouping change with the level). */
+  private lanesMode: Mode | null = null;
 
   constructor(cb: HudCallbacks) {
     this.root = el('div', 'hud-wrap');
@@ -105,6 +122,8 @@ export class Hud {
     const strip = el('div', 'strip');
     this.modeEl = el('div', 'mode');
     this.waveEl = el('div', 'wave');
+    this.alertEl = el('span', 'provider-alert');
+    this.alertEl.setAttribute('role', 'status');
     const bar = el('div', 'wave-track');
     this.waveBar = el('div', 'wave-fill');
     bar.append(this.waveBar);
@@ -118,7 +137,7 @@ export class Hud {
       dot.title = SERVICE_NAMES[i];
       this.lanesEl.append(dot);
     }
-    strip.append(this.modeEl, this.waveEl, bar, preview, this.lanesEl);
+    strip.append(this.modeEl, this.waveEl, this.alertEl, bar, preview, this.lanesEl);
 
     this.root.append(hud, strip);
     this.relabel();
@@ -177,29 +196,44 @@ export class Hud {
     this.modeEl.style.color = mode.color;
 
     const w = ctx.wave;
+    const total = MODES[ctx.mode].waves;
     let text: string;
     let progress: number;
     let previewQueue = w.next.queue;
     let previewLabel = t('Next wave:', 'Próxima ola:');
     if (w.phase === 'prep') {
-      text = t(`Wave 1/${TOTAL_WAVES} in ${Math.ceil(w.timer)} s`, `Ola 1/${TOTAL_WAVES} en ${Math.ceil(w.timer)} s`);
+      text = t(`Wave 1/${total} in ${Math.ceil(w.timer)} s`, `Ola 1/${total} en ${Math.ceil(w.timer)} s`);
       progress = 0;
     } else if (w.phase === 'break') {
-      text = t(`Wave ${w.number + 1}/${TOTAL_WAVES} in ${Math.ceil(w.timer)} s`, `Ola ${w.number + 1}/${TOTAL_WAVES} en ${Math.ceil(w.timer)} s`);
-      progress = w.number / TOTAL_WAVES;
+      text = t(`Wave ${w.number + 1}/${total} in ${Math.ceil(w.timer)} s`, `Ola ${w.number + 1}/${total} en ${Math.ceil(w.timer)} s`);
+      progress = w.number / total;
     } else {
-      text = `${t('Wave', 'Ola')} ${w.number}/${TOTAL_WAVES}`;
-      progress = (w.number - 1 + w.spawned / Math.max(1, w.total)) / TOTAL_WAVES;
+      text = `${t('Wave', 'Ola')} ${w.number}/${total}`;
+      progress = (w.number - 1 + w.spawned / Math.max(1, w.total)) / total;
       previewQueue = w.queue.slice(w.spawned);
       previewLabel = previewQueue.length > 0 ? t('Coming:', 'Por llegar:') : t('Wave in progress', 'Ola en curso');
     }
     this.waveEl.textContent = text;
+    const warned = ctx.provider?.state === 'warned' ? ctx.provider : null;
+    const alert = warned && warned.lanes.length > 0 ? t(`⚠ ${laneName(ctx.mode, warned.lanes[0])}: provider problems`, `⚠ ${laneName(ctx.mode, warned.lanes[0])}: problemas del proveedor`) : '';
+    if (this.alertEl.textContent !== alert) this.alertEl.textContent = alert;
+    this.alertEl.hidden = alert === '';
     this.waveBar.style.width = `${Math.min(100, progress * 100)}%`;
     this.renderPreview(previewLabel, previewQueue);
 
     const showLanes = ctx.mode !== 'monolith';
     this.lanesEl.style.display = showLanes ? '' : 'none';
-    this.lanesEl.querySelectorAll<HTMLElement>('.lane-dot').forEach((d, i) => {
+    const dots = this.lanesEl.querySelectorAll<HTMLElement>('.lane-dot');
+    if (this.lanesMode !== ctx.mode) {
+      // Multi-region: region names and a gap between the regions (3 + 2)
+      this.lanesMode = ctx.mode;
+      const regionEnds = REGIONS.slice(0, -1).map((r) => r.lanes[r.lanes.length - 1]);
+      dots.forEach((d, i) => {
+        d.title = laneName(ctx.mode, i);
+        d.classList.toggle('region-end', ctx.mode === 'multiRegion' && regionEnds.includes(i));
+      });
+    }
+    dots.forEach((d, i) => {
       const restarting = !ctx.lanesAlive[i] && ctx.laneRestart[i] > 0;
       d.classList.toggle('down', !ctx.lanesAlive[i] && !restarting);
       d.classList.toggle('restarting', restarting);

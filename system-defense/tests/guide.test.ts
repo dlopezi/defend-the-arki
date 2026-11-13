@@ -22,8 +22,17 @@ describe('Guide entries', () => {
   });
 
   it('Threats tab lists the threats in guide order, without the Botnet bots', () => {
-    const ids = guideEntries('threats').map((e) => e.id);
+    const ids = guideEntries('threats')
+      .filter((e) => e.kind === 'threat')
+      .map((e) => e.id);
     expect(ids).toEqual(['normal', 'scraper', 'ddos', 'zeroDay', 'sqli', 'ransomware', 'memoryLeak', 'botnet', 'slowloris', 'blackFriday']);
+  });
+
+  it('Threats tab ends with the Provider failure: an event of levels 2 to 4, not a threat', () => {
+    setLang('en');
+    const entries = guideEntries('threats');
+    expect(entries.at(-1)).toMatchObject({ id: 'providerFailure', kind: 'event', name: 'Provider failure', sub: 'Levels 2 to 4 · wave 3' });
+    expect(entries.at(-1)!.play).toBeTruthy();
   });
 
   it('A defense card has its name, cost, what it does in the game and its upgrade', () => {
@@ -46,10 +55,12 @@ describe('Guide entries', () => {
     expect(sqli.sub).toBeUndefined();
   });
 
-  it('Rollback says it is free and only in levels 2 and 3', () => {
+  it('Rollback says it is free and in which levels (2 to 4)', () => {
     setLang('en');
     const rollback = guideEntries('defenses').find((e) => e.id === 'rollback')!;
-    expect(rollback).toMatchObject({ name: 'Rollback', kind: 'defense', sub: 'Free · levels 2 and 3' });
+    expect(rollback).toMatchObject({ name: 'Rollback', kind: 'defense', sub: 'Free · levels 2 to 4' });
+    setLang('es');
+    expect(guideEntries('defenses').find((e) => e.id === 'rollback')!.sub).toBe('Gratis · niveles 2 a 4');
     expect(rollback.play).toBeTruthy();
   });
 });

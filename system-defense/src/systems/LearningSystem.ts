@@ -3,8 +3,9 @@ import type { System } from '../ecs/System';
 import type { GameContext } from '../game/GameContext';
 import { conceptOf, type ConceptId } from '../learn/concepts';
 
-function discover(ctx: GameContext, id: ConceptId): void {
-  if (ctx.seen.has(id)) return;
+/** Queues the concept card of `id` the first time it shows up (when cards are on). */
+export function discoverConcept(ctx: GameContext, id: ConceptId): void {
+  if (!ctx.learnEnabled || ctx.seen.has(id)) return;
   ctx.seen.add(id);
   ctx.conceptQueue.push(id);
 }
@@ -19,10 +20,10 @@ export const LearningSystem: System = {
   update(world, ctx) {
     if (!ctx.learnEnabled) return;
     for (const e of world.query('enemy', 'transform')) {
-      if (world.req(e, 'transform').x < GRID_RIGHT) discover(ctx, conceptOf(world.req(e, 'enemy').type));
+      if (world.req(e, 'transform').x < GRID_RIGHT) discoverConcept(ctx, conceptOf(world.req(e, 'enemy').type));
     }
     for (const e of world.query('rollback')) {
-      if (world.req(e, 'rollback').running) discover(ctx, 'rollback');
+      if (world.req(e, 'rollback').running) discoverConcept(ctx, 'rollback');
     }
   },
 };

@@ -1,6 +1,6 @@
 import { Sfx } from '../audio/Sfx';
 import { onLangChange, t } from '../i18n';
-import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, TOTAL_WAVES, type Mode, type Tool } from '../config';
+import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, type Mode, type Tool } from '../config';
 import { World } from '../ecs/World';
 import { RenderSystem } from '../render/RenderSystem';
 import { Hud } from '../ui/Hud';
@@ -70,7 +70,7 @@ export class Game {
         const ctx = this.ctx;
         const spec = MODES[ctx.mode];
         const result = ctx.status === 'victory' ? 'won' : ctx.status === 'gameover' ? 'lost' : undefined;
-        return { level: `Level ${spec.level} · ${spec.name}`, wave: `${ctx.wave.number}/${TOTAL_WAVES}`, result };
+        return { level: `Level ${spec.level} · ${spec.name}`, wave: `${ctx.wave.number}/${spec.waves}`, result };
       },
     });
 
@@ -116,6 +116,7 @@ export class Game {
       monolith: t('One failure in any lane brings the whole system down', 'Un solo fallo en cualquier carril tumba todo el sistema'),
       microservices: t('Each lane is an independent service', 'Cada carril es un servicio independiente'),
       kubernetes: t('Fallen lanes restart by themselves', 'Los carriles caídos se reinician solos'),
+      multiRegion: t('If a region falls, the other one takes its traffic (failover)', 'Si cae una región, la otra recibe su tráfico (failover)'),
     };
     pushBanner(this.ctx, `${t('LEVEL', 'NIVEL')} ${spec.level} · ${spec.name.toUpperCase()}`, spec.color, subs[mode], 3);
     this.suspended = false;

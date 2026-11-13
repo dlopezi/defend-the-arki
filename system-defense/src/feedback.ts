@@ -23,7 +23,7 @@ export interface FeedbackContext {
   language: string;
   /** "Level 2 · Microservices", or "none" on the title screen with no game. */
   level: string;
-  /** "7/10", only when a game exists. */
+  /** "3/5", only when a game exists. */
   wave?: string;
   /** "won" / "lost", only on the end screen. */
   result?: string;

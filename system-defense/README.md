@@ -81,13 +81,20 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
   Load Balancer, Rate Limiter (−50 %), Circuit Breaker (3×3 tras 1 s), Redis como muro,
   SQL Injection atraviesa Redis, Kafka atrapa, mejora a v2, Zero-Day salta la primera defensa
   (no el WAF), Black Friday destruye de un golpe, Botnet se divide, y la regla de Game Over de
-  cada nivel (Monolito, Microservicios con Rollback, Kubernetes que se reinicia a los 30 s, victoria).
+  cada nivel (Monolito, Microservicios con Rollback, Kubernetes que se reinicia a los 30 s,
+  Multi-región: cae la región entera, failover a la otra y vuelve a los 45 s; victoria).
+- **Provider failure** (`tests/provider.test.ts`): en los niveles 2–4, aviso en la pausa antes de la ola 3
+  y, al empezar la ola 3, cae el carril con más defensas (eu-west en Multi-región). Nunca tumba lo
+  último en pie y no existe en el Monolito.
+- **Récords** (`tests/records.test.ts`) y **Guía** (`tests/guide.test.ts`).
 - **Básicas** (`tests/core.test.ts`): mundo ECS, configuración, olas cada vez más difíciles,
-  Black Friday en las olas 5, 8 y 10, y que cada elemento tenga dibujo y ficha.
+  8 olas en el Nivel 1 y 5 en los demás (todas las amenazas salen en cada nivel), Black Friday
+  como jefe de la última ola (y de la ola 4 en el Nivel 1), y que cada elemento tenga dibujo y ficha.
 - **Idiomas** (`tests/i18n.test.ts`): falla si un texto en español de `src/` no está dentro de
   `t('English', 'Español')` o de una tabla en español (`const ES` o clave `es`).
-- **Partidas completas y carga** (`tests/soak.test.ts`): un bot juega partidas enteras
-  (3 semillas por nivel, una en modo "caos" con clics al azar). `npm run test:soak` muestra la tabla. Comprueba que no hay errores,
+- **Partidas completas y carga** (`tests/soak.test.ts`): un bot juega 13 partidas enteras
+  (4 niveles × 3 semillas, una en modo "caos" con clics al azar, y una más del Nivel 4 sin defender
+  us-east, para que las regiones caigan y vuelvan). En el Nivel 4 debe ganar al menos una. Comprueba que no hay errores,
   ni valores NaN, ni fugas de entidades. Otra prueba mantiene **500 amenazas + 45 defensas**
   y mide el tiempo de cada paso del motor.
 
@@ -96,7 +103,7 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 | Prueba | Resultado |
 |---|---|
 | Pruebas automáticas | ✅ todas pasan |
-| Partidas completas del bot (3 niveles × 3 semillas) | 8 victorias, 1 derrota en la ola 10 (Monolito). 0 errores. Máx. ~240 entidades |
+| 13 partidas completas del bot | 13 victorias. Duración (tiempo de juego a ×1): Nivel 1 ~12 min (8 olas); Niveles 2–4 entre 6,5 y 10,5 min (5 olas). En todas las partidas de los niveles 2–4 cayó algo (el Provider failure como mínimo), así que la regla del nivel siempre se ve. 0 errores. Máx. ~310 entidades |
 | Motor con 500 amenazas + 45 defensas | 0,5 ms por paso de media, 0,9 ms p99 (presupuesto: 16,7 ms) |
 | Navegador con 300 amenazas + 45 defensas | 60 FPS estables, peor frame 18,7 ms |
 | Memoria en el navegador (40 s bajo carga) | estable en ~23 MB (sin fugas) |

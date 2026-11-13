@@ -290,6 +290,79 @@ describe('levels: the Game Over rule', () => {
     expect(sim.ctx.status).toBe('gameover');
   });
 
+  it('Multi-region: a breach takes down its whole region with its defenses; the other region stays up', () => {
+    const sim = new Sim('multiRegion', { quiet: true });
+    for (const rb of sim.world.query('rollback')) sim.world.destroy(rb);
+    sim.place('worker', 0, 3);
+    sim.place('worker', 3, 3, { ignoreCooldown: true });
+    sim.spawn('normal', 1, BREACH_X + 5);
+    sim.run(1);
+    // eu-west (lanes 1–3) falls with its defenses; us-east (lanes 4–5) keeps working
+    expect(sim.ctx.lanesAlive).toEqual([false, false, false, true, true]);
+    expect(sim.ctx.grid[0][3]).toBeNull();
+    expect(sim.ctx.grid[3][3]).not.toBeNull();
+    expect(sim.ctx.status).toBe('playing');
+  });
+
+  it('Multi-region: failover, while a region is down new threats arrive only in the other region', () => {
+    const sim = new Sim('multiRegion', { quiet: true });
+    for (const rb of sim.world.query('rollback')) sim.world.destroy(rb);
+    sim.spawn('normal', 4, BREACH_X + 5);
+    sim.run(1);
+    expect(sim.ctx.lanesAlive).toEqual([true, true, true, false, false]);
+    // start the first wave now: its threats must all go to eu-west (lanes 1–3)
+    sim.ctx.wave.timer = 0;
+    sim.runUntil(() => sim.ctx.wave.spawned >= 5, 40);
+    const lanes = sim.enemies().map((e) => sim.world.req(e, 'lane').lane);
+    expect(lanes.length).toBe(5);
+    expect(lanes.every((lane) => lane <= 2)).toBe(true);
+  });
+
+  it('Multi-region: a fallen region comes back by itself after 45 s, without defenses', () => {
+    const sim = new Sim('multiRegion', { quiet: true });
+    for (const rb of sim.world.query('rollback')) sim.world.destroy(rb);
+    sim.place('worker', 3, 2);
+    sim.spawn('normal', 3, BREACH_X + 5);
+    sim.run(1);
+    expect(sim.ctx.lanesAlive).toEqual([true, true, true, false, false]);
+    sim.run(45 - 2);
+    expect(sim.ctx.lanesAlive).toEqual([true, true, true, false, false]);
+    sim.run(2);
+    expect(sim.ctx.lanesAlive).toEqual([true, true, true, true, true]);
+    expect(sim.ctx.grid[3][2]).toBeNull();
+    expect(sim.ctx.status).toBe('playing');
+  });
+
+  it('Multi-region: one region down is not Game Over; both down at the same time is', () => {
+    const sim = new Sim('multiRegion', { quiet: true });
+    for (const rb of sim.world.query('rollback')) sim.world.destroy(rb);
+    sim.spawn('normal', 0, BREACH_X + 5);
+    sim.run(1);
+    expect(sim.ctx.status).toBe('playing');
+    // eu-west is still coming back when us-east falls
+    sim.spawn('normal', 4, BREACH_X + 5);
+    sim.run(1);
+    expect(sim.ctx.status).toBe('gameover');
+  });
+
+  it('Multi-region: every lane has a Rollback; a fallen region loses its Rollbacks for good', () => {
+    const sim = new Sim('multiRegion', { quiet: true });
+    const rollbackLanes = () => sim.world.query('rollback').map((e) => sim.world.req(e, 'rollback').lane).sort();
+    expect(rollbackLanes()).toEqual([0, 1, 2, 3, 4]);
+    // 1st threat in lane 2: its Rollback sweeps it away and the region stays up
+    const first = sim.spawn('normal', 1, GRID_X + 40);
+    sim.run(3);
+    expect(sim.world.isAlive(first)).toBe(false);
+    expect(sim.ctx.lanesAlive.every(Boolean)).toBe(true);
+    // 2nd threat in the same lane: no Rollback left, so eu-west falls with all its Rollbacks
+    sim.spawn('normal', 1, GRID_X + 40);
+    sim.run(4);
+    expect(sim.ctx.lanesAlive).toEqual([false, false, false, true, true]);
+    sim.run(45);
+    expect(sim.ctx.lanesAlive.every(Boolean)).toBe(true);
+    expect(rollbackLanes()).toEqual([3, 4]);
+  });
+
   it('the last wave cleared = victory', () => {
     const sim = new Sim('monolith', { quiet: true });
     Object.assign(sim.ctx.wave, { number: 10, phase: 'clearing', timer: 30 });

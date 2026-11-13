@@ -23,7 +23,6 @@ export const onBoard = (x: number, width: number): boolean => x - width / 2 <= G
 
 export const FIXED_DT = 1 / 60;
 export const START_CU = 150;
-export const TOTAL_WAVES = 10;
 
 /* ---------- Economy ---------- */
 export const SKY_DROP_VALUE = 25;
@@ -54,10 +53,16 @@ export const LEAK_RATE = 14;
 export const LEAK_CAP = 1200;
 export const ROLLBACK_SPEED = 650;
 export const POD_RESTART_TIME = 30;
+/** Multi-region: seconds until a fallen region comes back (without defenses). */
+export const REGION_RECOVERY_TIME = 45;
+/** Levels 2 to 4: at the start of this wave the game takes down part of the system by itself. */
+export const PROVIDER_FAILURE_WAVE = 3;
+/** Amber of the Provider failure (warning banner, HUD chip, lanes at risk, its card). */
+export const PROVIDER_COLOR = '#fbbf24';
 
 /* ---------- Levels ---------- */
-export type Mode = 'monolith' | 'microservices' | 'kubernetes';
-export const MODE_ORDER: Mode[] = ['monolith', 'microservices', 'kubernetes'];
+export type Mode = 'monolith' | 'microservices' | 'kubernetes' | 'multiRegion';
+export const MODE_ORDER: Mode[] = ['monolith', 'microservices', 'kubernetes', 'multiRegion'];
 
 export interface ModeSpec {
   level: number;
@@ -66,6 +71,10 @@ export interface ModeSpec {
   rule: string;
   /** Lanes have a one-time Rollback. */
   rollback: boolean;
+  /** Waves to win. Level 1 shows most concept cards, so it is longer. */
+  waves: number;
+  /** The game takes part of the system down by itself at PROVIDER_FAILURE_WAVE. */
+  providerFailure: boolean;
 }
 
 // Texts are getters: they read the current language each time (see i18n.ts).
@@ -83,6 +92,8 @@ export const MODES: Record<Mode, ModeSpec> = {
       );
     },
     rollback: false,
+    waves: 8,
+    providerFailure: false,
   },
   microservices: {
     level: 2,
@@ -97,6 +108,8 @@ export const MODES: Record<Mode, ModeSpec> = {
       );
     },
     rollback: true,
+    waves: 5,
+    providerFailure: true,
   },
   kubernetes: {
     level: 3,
@@ -109,6 +122,24 @@ export const MODES: Record<Mode, ModeSpec> = {
       );
     },
     rollback: true,
+    waves: 5,
+    providerFailure: true,
+  },
+  multiRegion: {
+    level: 4,
+    get name() {
+      return t('Multi-region', 'Multi-región');
+    },
+    color: '#f472b6',
+    get rule() {
+      return t(
+        `2 regions: eu-west (lanes 1–3) and us-east (4–5). If a threat gets through, its whole region goes down and its traffic moves to the other one (failover). It comes back in ${REGION_RECOVERY_TIME} s, without defenses. Game Over if both fall at the same time.`,
+        `2 regiones: eu-west (carriles 1–3) y us-east (4–5). Si cruza una amenaza, cae toda su región y su tráfico pasa a la otra (failover). Vuelve en ${REGION_RECOVERY_TIME} s, sin defensas. Game Over si caen las 2 a la vez.`,
+      );
+    },
+    rollback: true,
+    waves: 5,
+    providerFailure: true,
   },
 };
 
@@ -328,6 +359,27 @@ export const ENEMY_ORDER: EnemyType[] = [
 ];
 
 export const SERVICE_NAMES = ['auth-svc', 'cart-svc', 'pay-svc', 'search-svc', 'user-svc'];
+
+/* ---------- Multi-region level ---------- */
+export interface RegionSpec {
+  name: string;
+  lanes: number[];
+}
+
+/** Level 4: the larger region takes lanes 1–3, the smaller one lanes 4–5. Both take traffic. */
+export const REGIONS: RegionSpec[] = [
+  { name: 'eu-west', lanes: [0, 1, 2] },
+  { name: 'us-east', lanes: [3, 4] },
+];
+
+export function regionOf(lane: number): RegionSpec {
+  return REGIONS.find((r) => r.lanes.includes(lane)) ?? REGIONS[0];
+}
+
+/** Name shown for a lane: its region in Multi-region, its service in the other levels. */
+export function laneName(mode: Mode, lane: number): string {
+  return mode === 'multiRegion' ? regionOf(lane).name : SERVICE_NAMES[lane];
+}
 
 /* ---------- Grid helpers ---------- */
 export const laneY = (lane: number): number => GRID_Y + lane * CELL_H + CELL_H / 2;

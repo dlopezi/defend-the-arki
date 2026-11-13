@@ -1,4 +1,4 @@
-import { DEFENSES, ENEMIES, MODES, type DefenseType, type EnemyType, type Mode } from '../config';
+import { DEFENSES, ENEMIES, laneName, MODES, type DefenseType, type EnemyType, type Mode } from '../config';
 import type { Entity, World } from '../ecs/World';
 import type { GameContext } from '../game/GameContext';
 import { pick, t, type Lang } from '../i18n';
@@ -18,13 +18,25 @@ export type CauseId =
   | 'overwhelmed';
 
 /** One breach: a threat crossed the left limit of a lane. */
-export interface Incident {
+export interface BreachIncident {
+  kind: 'breach';
   wave: number;
   lane: number;
   enemy: EnemyType;
   cause: CauseId;
   time: number;
 }
+
+/** The Provider failure took down `lane` (the first lane of a region in Multi-region). */
+export interface ProviderIncident {
+  kind: 'provider';
+  wave: number;
+  lane: number;
+  time: number;
+}
+
+/** Something that took part of the system down, for the end report. */
+export type Incident = BreachIncident | ProviderIncident;
 
 interface CauseText {
   root: string;
@@ -204,7 +216,11 @@ export function diagnose(world: World, ctx: GameContext, lane: number, enemy: En
   return 'overwhelmed';
 }
 
-export function describeIncident(i: Incident): string {
+export function describeIncident(i: Incident, mode: Mode): string {
+  if (i.kind === 'provider') {
+    const what = laneName(mode, i.lane);
+    return t(`Provider failure: ${what} went down in wave ${i.wave}. It was not a threat.`, `Provider failure: ${what} cayó en la ola ${i.wave}. No fue una amenaza.`);
+  }
   const name = ENEMIES[i.enemy].name;
   if (i.wave > 0) return t(`"${name}" crossed lane ${i.lane + 1} in wave ${i.wave}.`, `"${name}" cruzó el carril ${i.lane + 1} en la ola ${i.wave}.`);
   return t(`"${name}" crossed lane ${i.lane + 1} before the first wave.`, `"${name}" cruzó el carril ${i.lane + 1} antes de la primera ola.`);
@@ -237,7 +253,32 @@ export function levelLessonLoss(mode: Mode): { text: string; read: Link } {
         ),
         read: LINKS.pods,
       };
+    case 'multiRegion':
+      return {
+        text: t(
+          'A whole region fell and the other one could not hold all the traffic. Multi-region only works if each region has spare capacity to take the traffic of the other.',
+          'Cayó una región entera y la otra no aguantó todo el tráfico. Multi-región solo funciona si cada región tiene capacidad de sobra para recibir el tráfico de la otra.',
+        ),
+        read: LINKS.disasterRecovery,
+      };
   }
+}
+
+/**
+ * Extra lesson when a Provider failure happened: what decides the game is the spare
+ * capacity of the rest of the system. `won` picks the retrospective or the post-mortem text.
+ */
+export function providerLesson(mode: Mode, won: boolean): string {
+  const rest = mode === 'multiRegion' ? t('the other region', 'la otra región') : t('the rest of the lanes', 'el resto de carriles');
+  return won
+    ? t(
+        `You survived a Provider failure: ${rest} had enough spare capacity to take the traffic.`,
+        `Sobreviviste a un Provider failure: ${rest} tenía capacidad de sobra para recibir el tráfico.`,
+      )
+    : t(
+        `After the Provider failure, ${rest} did not have enough spare capacity. In real life, plan for losing a whole part of the system.`,
+        `Tras el Provider failure, ${rest} no tenía capacidad de sobra. En la vida real, planifica para perder una parte entera del sistema.`,
+      );
 }
 
 /** Architecture lesson of the level, after winning. */
@@ -275,6 +316,20 @@ export function levelLessonWin(mode: Mode, lanesLost: number): { text: string; r
                 'Ningún pod cayó. Si hubiera caído alguno, Kubernetes lo habría reiniciado solo (self-healing).',
               ),
         read: LINKS.pods,
+      };
+    case 'multiRegion':
+      // In this level every breach takes down a whole region, so lanesLost counts region falls.
+      return {
+        text:
+          lanesLost === 0
+            ? t('No region fell. If one had, the other would have taken its traffic (failover).', 'Ninguna región cayó. Si hubiera caído una, la otra habría recibido su tráfico (failover).')
+            : lanesLost === 1
+              ? t('A region fell and the other one took its traffic: that is failover.', 'Cayó una región y la otra recibió su tráfico: eso es failover.')
+              : t(
+                  `Regions fell ${lanesLost} times and each time the other one took the traffic: that is failover.`,
+                  `Cayeron regiones ${lanesLost} veces y, cada vez, la otra recibió su tráfico: eso es failover.`,
+                ),
+        read: LINKS.disasterRecovery,
       };
   }
 }

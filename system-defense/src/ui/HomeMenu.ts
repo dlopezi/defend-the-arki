@@ -2,7 +2,7 @@ import { MODE_ORDER, MODES, type Mode } from '../config';
 import type { SoundName } from '../game/GameContext';
 import { clearRecords, describeRecord, loadRecords } from '../game/records';
 import { lang, setLang, t, type Lang } from '../i18n';
-import { concept, type ConceptId } from '../learn/concepts';
+import { concept, kindLabel, toolsLabel, type ConceptId } from '../learn/concepts';
 import { guideEntries, type GuideTab } from '../learn/guide';
 import { fitCanvas, loop } from './anim';
 import { drawArena } from './homeArena';
@@ -384,11 +384,9 @@ export class HomeMenu {
     const entries = guideEntries(this.guideTab);
     const it = entries.find((e) => e.id === id) ?? entries[0];
     const c = concept(it.id);
-    const isDefense = it.kind === 'defense';
-    const meta = [isDefense ? t('Defense', 'Defensa') : t('Threat', 'Amenaza'), it.sub].filter(Boolean).join(' · ');
+    const meta = [kindLabel(it.kind), it.sub].filter(Boolean).join(' · ');
     const key = it.hotkey ? `<span class="guide-chip no-touch">${t('Key', 'Tecla')} ${esc(it.hotkey)}</span>` : '';
     const upgrade = it.upgrade ? `<h4>${t('Upgrade', 'Mejora')}</h4><p>${esc(it.upgrade)}</p>` : '';
-    const toolsLabel = isDefense ? t('Real tools', 'Herramientas reales') : t('How it is stopped in real life', 'Cómo se defiende en la vida real');
     return `<div class="guide-top" style="--accent:${it.color}">
         <div class="guide-art"><canvas data-icon="${it.id}" data-size="150" data-acting="1" width="150" height="150" style="width:150px;height:150px" aria-hidden="true"></canvas></div>
         <div class="guide-info">
@@ -403,7 +401,7 @@ export class HomeMenu {
       <div class="guide-real">
         <h4 class="guide-section">${t('In real life', 'En la vida real')}</h4>
         <p>${esc(c.real)}</p>
-        <h4>${toolsLabel}</h4>
+        <h4>${toolsLabel(it.kind)}</h4>
         <p>${c.tools.map(esc).join(' · ')}</p>
         <h4>${t('Same as in the game', 'Igual que en el juego')}</h4>
         <p>${esc(c.same)}</p>
@@ -439,8 +437,8 @@ export class HomeMenu {
     const key = (k: string, v: string) => `<span>${k} ${v}</span>`;
     return `
       <p class="howto-goal"><b>${t('Goal:', 'Objetivo:')}</b> ${t(
-        'protect the base (left) from the traffic that comes from the Internet (right). Survive 10 waves.',
-        'protege la base (izquierda) del tráfico que llega desde Internet (derecha). Sobrevive a 10 olas.',
+        `protect the base (left) from the traffic that comes from the Internet (right). Survive every wave: ${MODES.monolith.waves} in Level 1, ${MODES.microservices.waves} in the others.`,
+        `protege la base (izquierda) del tráfico que llega desde Internet (derecha). Sobrevive a todas las olas: ${MODES.monolith.waves} en el Nivel 1, ${MODES.microservices.waves} en los demás.`,
       )}</p>
       <ol class="steps">${steps}</ol>
       <div class="keys">
@@ -472,8 +470,8 @@ export class HomeMenu {
         'Las fichas volverán a salir durante la partida.',
       )}</span></div><button class="btn" data-opt="resetSeen" type="button">${t('Reset', 'Reiniciar')}</button></div>
       <div class="opt"><div><strong>${t('Clear records', 'Borrar récords')}</strong><span>${t(
-        'Clears the records of the 3 levels in this browser.',
-        'Borra los récords de los 3 niveles en este navegador.',
+        'Clears the records of all levels in this browser.',
+        'Borra los récords de todos los niveles en este navegador.',
       )}</span></div><button class="btn ${this.confirmClear ? 'danger' : ''}" data-opt="clearRecords" type="button">${
         this.confirmClear ? t('Sure? Press again', '¿Seguro? Pulsa otra vez') : t('Clear', 'Borrar')
       }</button></div>

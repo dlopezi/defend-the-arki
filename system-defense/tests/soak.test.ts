@@ -5,7 +5,7 @@ import { seedRandom, Sim } from './harness';
 
 /*
  * Soak and load tests of the engine (no screen):
- * - a bot plays full games in the 3 levels with several random seeds;
+ * - a bot plays full games in the 4 levels with several random seeds;
  * - a stress test runs hundreds of threats at the same time.
  * They check that nothing throws, no number turns into NaN, the number of entities
  * stays bounded (no leaks) and one logic step stays far below the 16.7 ms frame budget.
@@ -31,13 +31,17 @@ const PLAN: [DefenseType, number][] = [
 ];
 
 /** A simple player: collects CU, builds the plan lane by lane, upgrades, uses Circuit Breakers. */
-function botTurn(sim: Sim, style: 'smart' | 'chaos'): void {
+/** smart: plays well · chaos: also clicks at random · lazy: never defends lanes 4–5. */
+type Style = 'smart' | 'chaos' | 'lazy';
+
+function botTurn(sim: Sim, style: Style): void {
   const { ctx, world } = sim;
+  const usable = (lane: number) => ctx.lanesAlive[lane] && !(style === 'lazy' && lane >= 3);
   sim.collectAll();
   // Circuit Breaker on a crowded lane
   if (ctx.cu >= DEFENSES.circuitBreaker.cost && ctx.cooldowns.circuitBreaker <= 0) {
     for (let lane = 0; lane < LANES; lane++) {
-      if (!ctx.lanesAlive[lane]) continue;
+      if (!usable(lane)) continue;
       const xs = world
         .query('enemy', 'lane', 'transform')
         .filter((e) => world.req(e, 'lane').lane === lane)
@@ -54,7 +58,7 @@ function botTurn(sim: Sim, style: 'smart' | 'chaos'): void {
   }
   // a lane with a threat on screen and no shooter gets a Load Balancer first
   for (let lane = 0; lane < LANES; lane++) {
-    if (!ctx.lanesAlive[lane]) continue;
+    if (!usable(lane)) continue;
     const threatened = world.query('enemy', 'lane', 'transform').some((e) => world.req(e, 'lane').lane === lane && world.req(e, 'transform').x < CANVAS_W);
     const shooters = world.query('shooter', 'gridCell').some((e) => world.req(e, 'gridCell').lane === lane);
     if (!threatened || shooters) continue;
@@ -68,7 +72,7 @@ function botTurn(sim: Sim, style: 'smart' | 'chaos'): void {
   // build the plan
   for (const [type, col] of PLAN) {
     for (let lane = 0; lane < LANES; lane++) {
-      if (!ctx.lanesAlive[lane] || ctx.grid[lane][col] !== null) continue;
+      if (!usable(lane) || ctx.grid[lane][col] !== null) continue;
       if (ctx.cu < DEFENSES[type].cost || ctx.cooldowns[type] > 0) continue;
       sim.place(type, lane, col);
       return;
@@ -105,6 +109,8 @@ interface Report {
   wave: number;
   minutes: number;
   kills: number;
+  /** Breaches that took something down (lanes, or regions in Multi-region). */
+  falls: number;
   maxEntities: number;
   avgMs: number;
   p99Ms: number;
@@ -128,7 +134,7 @@ function checkSane(sim: Sim): void {
   }
 }
 
-function playFullGame(mode: Mode, seed: number, style: 'smart' | 'chaos'): Report {
+function playFullGame(mode: Mode, seed: number, style: Style): Report {
   restore = seedRandom(seed);
   const sim = new Sim(mode);
   const times: number[] = [];
@@ -159,6 +165,7 @@ function playFullGame(mode: Mode, seed: number, style: 'smart' | 'chaos'): Repor
     wave: sim.ctx.wave.number,
     minutes: Math.round((sim.ctx.time / 60) * 10) / 10,
     kills: sim.ctx.kills,
+    falls: sim.ctx.incidents.length,
     maxEntities,
     avgMs: Math.round((times.reduce((s, x) => s + x, 0) / times.length) * 1000) / 1000,
     p99Ms: Math.round(times[Math.floor(times.length * 0.99)] * 1000) / 1000,
@@ -172,7 +179,7 @@ describe('soak: full games played by a bot', () => {
       [1, 'smart'],
       [2, 'smart'],
       [3, 'chaos'],
-    ] as [number, 'smart' | 'chaos'][]) {
+    ] as [number, Style][]) {
       it(`${mode} · seed ${seed} · ${style}`, () => {
         const r = playFullGame(mode, seed, style);
         reports.push(r);
@@ -182,9 +189,20 @@ describe('soak: full games played by a bot', () => {
       });
     }
   }
+  // The smart bot rarely lets a threat through, so this game makes regions fall and come back.
+  it('multiRegion · seed 4 · lazy (us-east left undefended)', () => {
+    const r = playFullGame('multiRegion', 4, 'lazy');
+    reports.push(r);
+    expect(['victory', 'gameover']).toContain(r.result);
+    expect(r.falls).toBeGreaterThan(0);
+    expect(r.maxEntities).toBeLessThan(2500);
+    expect(r.p99Ms).toBeLessThan(8);
+  });
   it('report', () => {
     console.table(reports);
-    expect(reports.length).toBe(9);
+    expect(reports.length).toBe(13); // 4 levels × 3 seeds + the lazy game
+    // Multi-region must be winnable: the bot wins at least one Multi-region game
+    expect(reports.filter((r) => r.mode === 'multiRegion' && r.result === 'victory').length).toBeGreaterThanOrEqual(1);
   });
 });
 
