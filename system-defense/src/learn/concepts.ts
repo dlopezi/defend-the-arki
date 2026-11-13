@@ -44,6 +44,10 @@ export const LINKS = {
   slowloris: { label: 'Cloudflare · Slowloris DDoS attack', url: 'https://www.cloudflare.com/learning/ddos/ddos-attack-tools/slowloris/' },
   bulkhead: { label: 'Microsoft · Bulkhead pattern', url: 'https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead' },
   pods: { label: 'Kubernetes · Pod lifecycle', url: 'https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/' },
+  disasterRecovery: {
+    label: 'AWS · Disaster recovery options in the cloud',
+    url: 'https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/disaster-recovery-options-in-the-cloud.html',
+  },
 } satisfies Record<string, Link>;
 
 const ES: Record<ConceptId, Concept> = {

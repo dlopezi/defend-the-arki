@@ -1,4 +1,18 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, LANES, MODES, SERVICE_NAMES, TOTAL_WAVES, type DefenseType, type EnemyType, type Tool } from '../config';
+import {
+  DEFENSE_ORDER,
+  DEFENSES,
+  ENEMIES,
+  LANES,
+  laneName,
+  MODES,
+  REGIONS,
+  SERVICE_NAMES,
+  TOTAL_WAVES,
+  type DefenseType,
+  type EnemyType,
+  type Mode,
+  type Tool,
+} from '../config';
 import type { GameContext } from '../game/GameContext';
 import { countByType } from '../game/waves';
 import { onLangChange, t } from '../i18n';
@@ -60,6 +74,8 @@ export class Hud {
   private readonly cards = new Map<Tool, CardRefs>();
   private lastCu = -1;
   private lastPreview = '';
+  /** Level the lane dots are labeled for (names and grouping change with the level). */
+  private lanesMode: Mode | null = null;
 
   constructor(cb: HudCallbacks) {
     this.root = el('div', 'hud-wrap');
@@ -199,7 +215,17 @@ export class Hud {
 
     const showLanes = ctx.mode !== 'monolith';
     this.lanesEl.style.display = showLanes ? '' : 'none';
-    this.lanesEl.querySelectorAll<HTMLElement>('.lane-dot').forEach((d, i) => {
+    const dots = this.lanesEl.querySelectorAll<HTMLElement>('.lane-dot');
+    if (this.lanesMode !== ctx.mode) {
+      // Multi-region: region names and a gap between the regions (3 + 2)
+      this.lanesMode = ctx.mode;
+      const regionEnds = REGIONS.slice(0, -1).map((r) => r.lanes[r.lanes.length - 1]);
+      dots.forEach((d, i) => {
+        d.title = laneName(ctx.mode, i);
+        d.classList.toggle('region-end', ctx.mode === 'multiRegion' && regionEnds.includes(i));
+      });
+    }
+    dots.forEach((d, i) => {
       const restarting = !ctx.lanesAlive[i] && ctx.laneRestart[i] > 0;
       d.classList.toggle('down', !ctx.lanesAlive[i] && !restarting);
       d.classList.toggle('restarting', restarting);

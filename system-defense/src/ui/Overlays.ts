@@ -1,4 +1,4 @@
-import { MODE_ORDER, MODES, SERVICE_NAMES, TOTAL_WAVES, type Mode } from '../config';
+import { laneName, MODE_ORDER, MODES, REGIONS, TOTAL_WAVES, type Mode } from '../config';
 import type { GameContext, SoundName } from '../game/GameContext';
 import { onLangChange, t } from '../i18n';
 import { concept, type ConceptId, type Link } from '../learn/concepts';
@@ -26,6 +26,8 @@ export interface OverlayCallbacks {
 }
 
 type Screen = 'menu' | 'pause' | 'end' | 'concept' | 'feedback' | 'none';
+/** Where Feedback was opened: the title menu, or the pause / end screen of a game. */
+type FeedbackFrom = 'menu' | 'pause' | 'end';
 
 function fmtTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -44,19 +46,20 @@ function link(l: Link): string {
 /**
  * Screens.
  * - `home`: start view, shown instead of the HUD and board.
- * - `root`: pause, end and Feedback screens, drawn over the board.
+ * - `root`: pause and end screens, drawn over the board.
  * - `concept`: concept card, fixed over the whole page (works in both views).
+ * - `feedback`: Feedback modal, fixed over the whole page (from the menu, pause or end).
  */
 export class Overlays {
   readonly root: HTMLElement;
   readonly home: HTMLElement;
   readonly concept: HTMLElement;
+  readonly feedback: HTMLElement;
   private readonly homeMenu: HomeMenu;
   private readonly pause: HTMLElement;
   private readonly end: HTMLElement;
-  private readonly feedback: HTMLElement;
-  /** Screen to go back to when Feedback closes (pause or end), or null when closed. */
-  private feedbackReturn: 'pause' | 'end' | null = null;
+  /** Screen to go back to when Feedback closes, or null when closed. */
+  private feedbackReturn: FeedbackFrom | null = null;
   private readonly cb: OverlayCallbacks;
   private conceptClose: (() => void) | null = null;
 
@@ -75,8 +78,7 @@ export class Overlays {
       toggleMute: () => cb.toggleMute(),
       resetSeen: () => cb.resetSeen(),
       playSound: (name) => cb.playSound(name),
-      // The card opens over the home view; closing it just hides the card.
-      openConcept: (id) => this.showConcept(id, { inGame: false, onClose: () => undefined }),
+      openFeedback: () => this.openFeedback('menu'),
     });
     this.home = this.homeMenu.el;
 
@@ -94,7 +96,7 @@ export class Overlays {
     this.concept = document.createElement('section');
     this.concept.className = 'overlay concept';
 
-    this.root.append(this.pause, this.end, this.feedback);
+    this.root.append(this.pause, this.end);
     this.show('menu');
   }
 
@@ -105,14 +107,17 @@ export class Overlays {
     this.pause.querySelector('[data-act="feedback"]')?.addEventListener('click', () => this.openFeedback('pause'));
   }
 
-  /* ---------- Feedback (from the pause and end screens) ---------- */
+  /* ---------- Feedback modal (from the title menu, pause and end screens) ---------- */
 
   get feedbackOpen(): boolean {
     return this.feedbackReturn !== null;
   }
 
-  /** Opens the Feedback form over the board. The game stays paused or ended. */
-  openFeedback(from: 'pause' | 'end'): void {
+  /**
+   * Opens the Feedback modal. From the menu, the title screen stays behind it; in a game,
+   * it replaces the pause or end screen and the game stays paused or ended.
+   */
+  openFeedback(from: FeedbackFrom): void {
     this.feedback.innerHTML = `
       <div class="panel small feedback-panel" role="dialog" aria-labelledby="feedback-title">
         <div class="feedback-head">
@@ -122,12 +127,16 @@ export class Overlays {
         <div class="feedback-host"></div>
       </div>`;
     mountFeedbackForm(this.feedback.querySelector<HTMLElement>('.feedback-host')!, {
-      getGameInfo: () => this.cb.getGameInfo(),
+      getGameInfo: () => (from === 'menu' ? this.menuGameInfo() : this.cb.getGameInfo()),
       doneLabel: t('Close', 'Cerrar'),
       onDone: () => this.closeFeedback(),
     });
     this.feedback.querySelector('[data-act="close"]')?.addEventListener('click', () => this.closeFeedback());
-    this.show('feedback');
+    if (from === 'menu') {
+      this.feedback.classList.add('visible');
+      // Keyboard focus stays in the modal: the title screen behind it does not react.
+      this.home.inert = true;
+    } else this.show('feedback');
     this.feedbackReturn = from;
     focusFeedback(this.feedback);
   }
@@ -135,7 +144,22 @@ export class Overlays {
   closeFeedback(): void {
     const back = this.feedbackReturn;
     if (!back) return;
+    if (back === 'menu') {
+      this.feedback.classList.remove('visible');
+      this.feedbackReturn = null;
+      this.home.inert = false;
+      this.home.querySelector<HTMLButtonElement>('[data-go="feedback"]')?.focus({ preventScroll: true });
+      return;
+    }
     this.show(back);
+  }
+
+  /** From the menu: a game left paused with "Menu" is the one the player talks about. */
+  private menuGameInfo(): FeedbackGameInfo {
+    const s = this.cb.getSuspended();
+    if (!s) return { level: 'none' };
+    const spec = MODES[s.mode];
+    return { level: `Level ${spec.level} · ${spec.name}`, wave: `${s.wave}/${TOTAL_WAVES}` };
   }
 
   /** A key pressed on the home view (menu navigation). Returns true if it was used. */
@@ -156,6 +180,7 @@ export class Overlays {
     this.feedback.classList.toggle('visible', which === 'feedback');
     if (which !== 'concept') this.conceptClose = null;
     if (which !== 'feedback') this.feedbackReturn = null;
+    this.home.inert = false;
   }
 
   /* ---------- Concept card ---------- */
@@ -229,7 +254,13 @@ export class Overlays {
     const win = ctx.status === 'victory';
     const spec = MODES[ctx.mode];
     const alive = ctx.lanesAlive.filter(Boolean).length;
-    const services = ctx.mode !== 'monolith' ? `<div><span>${t('Services up', 'Servicios en pie')}</span><b>${alive}/5</b></div>` : '';
+    const regionsUp = REGIONS.filter((r) => r.lanes.every((lane) => ctx.lanesAlive[lane])).length;
+    const services =
+      ctx.mode === 'multiRegion'
+        ? `<div><span>${t('Regions up', 'Regiones en pie')}</span><b>${regionsUp}/${REGIONS.length}</b></div>`
+        : ctx.mode !== 'monolith'
+          ? `<div><span>${t('Services up', 'Servicios en pie')}</span><b>${alive}/5</b></div>`
+          : '';
     const nextMode = MODE_ORDER[MODE_ORDER.indexOf(ctx.mode) + 1];
     const nextBtn = nextMode ? `<button class="btn" data-act="next" type="button">${t('Go to Level', 'Ir al Nivel')} ${MODES[nextMode].level}</button>` : '';
     const report = win ? this.retrospective(ctx) : this.postmortem(ctx);
@@ -271,7 +302,7 @@ export class Overlays {
     const timeline =
       ctx.incidents.length > 1
         ? `<h4>${t('Timeline', 'Cronología')}</h4><ol class="timeline">${ctx.incidents
-            .map((i) => `<li><span>${fmtTime(i.time)}</span> ${esc(SERVICE_NAMES[i.lane])}: ${esc(describeIncident(i))} <em>${esc(cause(i.cause).root)}</em></li>`)
+            .map((i) => `<li><span>${fmtTime(i.time)}</span> ${esc(laneName(ctx.mode, i.lane))}: ${esc(describeIncident(i))} <em>${esc(cause(i.cause).root)}</em></li>`)
             .join('')}</ol>`
         : '';
     return `
@@ -297,7 +328,7 @@ export class Overlays {
         <h3>${t('Retrospective', 'Retrospectiva')}</h3>
         <dl>
           <dt>${t('What you used most', 'Lo que más usaste')}</dt><dd>${top.length ? esc(top.join(' · ')) : t('No defense', 'Ninguna defensa')}</dd>
-          <dt>${t('Services down', 'Servicios caídos')}</dt><dd>${lost}</dd>
+          <dt>${ctx.mode === 'multiRegion' ? t('Regions down', 'Regiones caídas') : t('Services down', 'Servicios caídos')}</dt><dd>${lost}</dd>
           <dt>${t('Lesson', 'Lección')}</dt><dd>${esc(level.text)} ${link(level.read)}</dd>
         </dl>
       </section>`;

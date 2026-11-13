@@ -274,6 +274,10 @@ body {
   background: #450a0a;
   box-shadow: none;
 }
+/* Multi-region: gap between the two regions (3 + 2) */
+.lane-dot.region-end {
+  margin-right: 8px;
+}
 .lane-dot.restarting {
   background: #f59e0b;
   box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
@@ -375,7 +379,7 @@ body {
 }
 .levels {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 .level {
@@ -818,43 +822,154 @@ kbd {
   color: var(--text);
   background: #0369a1;
 }
-.codex {
+/* Guide: list on the left, card of the chosen element on the right. */
+.guide-hint {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #5eead4;
+}
+.guide-keys {
+  margin-left: 8px;
+  font: 12px var(--mono);
+  color: var(--muted);
+}
+.guide {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.codex {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: #070b17;
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 .codex-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 8px;
-  text-align: center;
+  gap: 10px;
+  padding: 1px 10px 1px 6px;
+  text-align: left;
   color: var(--text);
   background: var(--panel-2);
   border: 2px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: var(--cur-hot);
-  transition: transform 0.08s, border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 .codex-item:hover,
 .codex-item:focus-visible {
-  border-color: var(--accent);
-  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
   outline: none;
 }
+.codex-item.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel-2));
+}
 .codex-icon {
-  background: #070b17;
-  border-radius: 10px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+}
+.codex-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 .codex-item strong {
-  font-size: 13px;
+  font: 800 13px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.codex-item.active strong {
   color: var(--accent);
 }
-.codex-item span {
-  font-size: 11px;
+.codex-text > span {
+  font-size: 12px;
   line-height: 1.3;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.guide-card {
+  padding: 18px 20px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.guide-top {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+.guide-art {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 164px;
+  height: 164px;
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent) 22%, #070b17), #03060f 70%);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 10px;
+}
+.guide-info {
+  min-width: 0;
+}
+.guide-name {
+  margin: 0;
+  font: 900 26px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.guide-meta {
+  margin: 2px 0 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.guide-card h4 {
+  margin: 10px 0 2px;
+  font: 700 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.guide-info h4,
+.guide-card h4.guide-section {
+  color: #5eead4;
+}
+.guide-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+.guide-chip {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 3px 10px;
+  font: 700 12px var(--mono);
+  color: var(--cu);
+  background: #070b17;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.guide-real {
+  margin-top: 14px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.guide-card .guide-read {
+  margin-top: 12px;
+  font-size: 13px;
+}
+.guide-read a {
+  color: #5eead4;
 }
 /* How to play: animated step cards */
 .howto-goal {
@@ -969,8 +1084,41 @@ kbd {
   }
 }
 @media (max-width: 760px) {
+  /* Header: Back and title on one row, the tabs on a full row below. */
+  .screen-head {
+    grid-template-columns: auto 1fr;
+  }
+  .screen-head h2 {
+    text-align: right;
+  }
+  .head-right {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+  .head-right:empty {
+    display: none;
+  }
+  .head-right .tabs {
+    display: flex;
+  }
+  .head-right .tab {
+    flex: 1;
+  }
+  /* Guide: the list becomes a row you swipe, with the card below it. */
+  .guide {
+    grid-template-columns: 1fr;
+  }
   .codex {
-    grid-template-columns: repeat(2, 1fr);
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .codex-item {
+    flex: 0 0 auto;
+  }
+  .guide-top {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
   .logo {
     font-size: 40px;
@@ -1532,16 +1680,12 @@ button {
 
   /* menu screens: use the width, since the height is short */
   .levels {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
   }
   .level {
     padding: 10px 12px;
     font-size: 12px;
-  }
-  .codex {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
   }
   .steps {
     grid-template-columns: repeat(3, 1fr);
@@ -1601,7 +1745,11 @@ button {
   }
 }
 
-/* ---------- Feedback (title menu screen, and over the game from pause / end) ---------- */
+/* ---------- Feedback modal (over the title menu, or the game from pause / end) ---------- */
+.overlay.feedback-overlay {
+  position: fixed;
+  z-index: 45;
+}
 .feedback {
   display: flex;
   flex-direction: column;

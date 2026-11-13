@@ -72,7 +72,7 @@ describe('config', () => {
         expect(table[id].read, `${lang}: ${id}`).toBe(CONCEPT_TABLES.en[id].read);
       }
     }
-    expect(MODE_ORDER).toEqual(['monolith', 'microservices', 'kubernetes']);
+    expect(MODE_ORDER).toEqual(['monolith', 'microservices', 'kubernetes', 'multiRegion']);
   });
 });
 
