@@ -11,7 +11,7 @@ A **release** merges `develop` into `main` (which deploys to defend.thearki.com)
 5. **Verify live.** The bundle carries the version string:
    ```sh
    js=$(curl -s https://defend.thearki.com/ | grep -o 'assets/[^"]*\.js' | head -1)
-   curl -s "https://defend.thearki.com/$js" | grep -c '"X.Y.Z"'
+   curl -s "https://defend.thearki.com/$js" | grep -cE '["`]X.Y.Z["`]'
    ```
    Done when the count is not 0.
 6. **GitHub Release.** `gh release create vX.Y.Z --target <merge commit sha> --title "Defend the Arki vX.Y.Z" --notes-file <file>`. The notes are for players, not developers; copy the shape of the last one (`gh release view --json body -q .body`): one-line intro, **Play:** link, "In this version" bullets, Feedback section.
