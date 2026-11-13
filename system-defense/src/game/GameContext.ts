@@ -58,7 +58,6 @@ export interface Banner {
   duration: number;
 }
 
-/** Shared state ("resources" in ECS terms) that is not tied to one entity. */
 /**
  * Provider failure of levels 2 to 4: warned in the break before its wave, then the
  * `lanes` go down at the start of the wave ('skipped' if they would be the last ones up).
@@ -68,6 +67,7 @@ export interface ProviderFailure {
   lanes: number[];
 }
 
+/** Shared state ("resources" in ECS terms) that is not tied to one entity. */
 export interface GameContext {
   mode: Mode;
   status: Status;
@@ -164,7 +164,7 @@ export function createContext(mode: Mode): GameContext {
     seen: new Set(),
     conceptQueue: [],
     incidents: [],
-    provider: mode === 'monolith' ? null : { state: 'waiting', lanes: [] },
+    provider: MODES[mode].providerFailure ? { state: 'waiting', lanes: [] } : null,
     placed,
     laneLosses: Array.from({ length: LANES }, () => 0),
   };

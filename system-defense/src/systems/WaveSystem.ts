@@ -36,10 +36,13 @@ function startWave(world: World, ctx: GameContext): void {
   runProviderFailure(world, ctx);
 }
 
-/** A short pause between waves. Before the Provider failure wave, it carries its warning. */
-function startBreak(ctx: GameContext): void {
+/**
+ * A short pause between waves. Before the Provider failure wave, it carries its warning.
+ * `mitigated` is false when the wave timed out with threats still on the board.
+ */
+function startBreak(ctx: GameContext, mitigated: boolean): void {
   const w = ctx.wave;
-  pushBanner(ctx, t(`WAVE ${w.number} MITIGATED`, `OLA ${w.number} MITIGADA`), '#4ade80', t(`Next wave in ${BREAK_TIME} s`, `Siguiente ola en ${BREAK_TIME} s`));
+  if (mitigated) pushBanner(ctx, t(`WAVE ${w.number} MITIGATED`, `OLA ${w.number} MITIGADA`), '#4ade80', t(`Next wave in ${BREAK_TIME} s`, `Siguiente ola en ${BREAK_TIME} s`));
   w.phase = 'break';
   w.timer = BREAK_TIME;
   warnProviderFailure(ctx);
@@ -98,10 +101,10 @@ export const WaveSystem: System = {
             sound(ctx, 'victory');
             return;
           }
-          startBreak(ctx);
+          startBreak(ctx, true);
         } else if (w.timer <= 0 && w.number < MODES[ctx.mode].waves) {
           // The warning needs its break, even when threats are still on the board.
-          if (ctx.provider?.state === 'waiting' && w.number === PROVIDER_FAILURE_WAVE - 1) startBreak(ctx);
+          if (ctx.provider?.state === 'waiting' && w.number === PROVIDER_FAILURE_WAVE - 1) startBreak(ctx, false);
           else startWave(world, ctx);
         }
         return;

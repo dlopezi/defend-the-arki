@@ -138,6 +138,43 @@ describe('Provider failure', () => {
     expect(sim.ctx.provider?.state).toBe('skipped');
   });
 
+  it('if the warned lane fell during the break, another lane falls instead', () => {
+    const sim = quiet('microservices');
+    fortify(sim, 3, 2);
+    endWave(sim, 2);
+    sim.step();
+    expect(sim.ctx.provider?.lanes).toEqual([3]);
+    sim.ctx.lanesAlive[3] = false;
+    throughBreak(sim);
+    expect(sim.ctx.provider?.state).toBe('done');
+    expect(sim.ctx.lanesAlive.filter(Boolean).length).toBe(3);
+  });
+
+  it('Multi-region: no warning while eu-west is already down, and no false "recovered" message', () => {
+    const sim = quiet('multiRegion');
+    for (const l of [0, 1, 2]) {
+      sim.ctx.lanesAlive[l] = false;
+      sim.ctx.laneRestart[l] = 99;
+    }
+    endWave(sim, 2);
+    sim.step();
+    expect(sim.ctx.provider?.state).toBe('waiting');
+    throughBreak(sim);
+    expect(sim.ctx.provider?.state).toBe('skipped');
+    expect(sim.ctx.banners.some((b) => b.text.includes('RECOVERED'))).toBe(false);
+  });
+
+  it('when wave 2 times out with threats left, the break carries the warning without saying "mitigated"', () => {
+    const sim = quiet('microservices');
+    endWave(sim, 2);
+    sim.ctx.wave.timer = 0.01;
+    sim.spawn('normal', 0, 900);
+    sim.step(2);
+    expect(sim.ctx.wave.phase).toBe('break');
+    expect(sim.ctx.provider?.state).toBe('warned');
+    expect(sim.ctx.banners.some((b) => b.text.includes('MITIGATED'))).toBe(false);
+  });
+
   it('queues its concept card the first time, when cards are on', () => {
     const sim = quiet('microservices');
     endWave(sim, 2);

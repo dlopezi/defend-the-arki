@@ -45,6 +45,17 @@ export function buildWave(n: number, total: number): WavePlan {
   const queue: EnemyType[] = [];
   // The first few of every wave are easy traffic.
   for (let i = 0; i < count; i++) queue.push(i < 2 ? 'normal' : pick(weights));
+  // The last wave has every threat at least once, so a level never misses one by chance.
+  if (n === total) {
+    const missing = (Object.keys(weights) as EnemyType[]).filter((type) => (weights[type] ?? 0) > 0 && !queue.includes(type));
+    // Replace, from the end, threats that appear more than once (never the only one of a type).
+    let j = queue.length - 1;
+    for (const type of missing) {
+      while (j >= 2 && queue.filter((q) => q === queue[j]).length < 2) j--;
+      if (j < 2) break;
+      queue[j--] = type;
+    }
+  }
 
   const surgeAt = Math.floor(count * 0.7);
   if (n === total) {

@@ -37,12 +37,15 @@ function targetName(ctx: GameContext, lanes: number[]): string {
 export function warnProviderFailure(ctx: GameContext): void {
   const p = ctx.provider;
   if (!p || p.state !== 'waiting' || ctx.wave.number !== PROVIDER_FAILURE_WAVE - 1) return;
-  p.lanes = pickLanes(ctx);
+  const lanes = pickLanes(ctx);
+  // Nothing up to warn about (eu-west already down): no warning; wave 3 decides again.
+  if (!lanes.some((l) => ctx.lanesAlive[l])) return;
+  p.lanes = lanes;
   p.state = 'warned';
   const name = targetName(ctx, p.lanes);
   pushBanner(
     ctx,
-    t('⚠ PROVIDER FAILURE AHEAD', '⚠ FALLO DEL PROVEEDOR'),
+    t('⚠ PROVIDER FAILURE AHEAD', '⚠ PROVIDER FAILURE EN CAMINO'),
     PROVIDER_COLOR,
     t(`The provider of ${name} reports problems. Strengthen the rest.`, `El proveedor de ${name} reporta problemas. Refuerza el resto.`),
     6,
@@ -62,12 +65,17 @@ export function providerWarned(ctx: GameContext): boolean {
 export function runProviderFailure(world: World, ctx: GameContext): void {
   const p = ctx.provider;
   if (!p || ctx.wave.number !== PROVIDER_FAILURE_WAVE) return;
-  if (p.state === 'waiting') p.lanes = pickLanes(ctx); // the break was skipped: no warning
   if (p.state !== 'waiting' && p.state !== 'warned') return;
+  // Not warned, or the warned lane fell during the break: choose again among the lanes up.
+  if (p.state === 'waiting' || !p.lanes.some((l) => ctx.lanesAlive[l])) p.lanes = pickLanes(ctx);
   const name = targetName(ctx, p.lanes);
   const up = p.lanes.filter((l) => ctx.lanesAlive[l]);
+  if (up.length === 0) {
+    p.state = 'skipped'; // already down (eu-west): nothing to take down, nothing to say
+    return;
+  }
   const othersUp = ctx.lanesAlive.some((alive, l) => alive && !p.lanes.includes(l));
-  if (up.length === 0 || !othersUp) {
+  if (!othersUp) {
     p.state = 'skipped';
     pushBanner(
       ctx,
@@ -88,6 +96,7 @@ export function runProviderFailure(world: World, ctx: GameContext): void {
       : ctx.mode === 'kubernetes'
         ? t(`Automatic restart in ${POD_RESTART_TIME} s.`, `Reinicio automático en ${POD_RESTART_TIME} s.`)
         : t('It does not come back. The other services keep working.', 'No vuelve. Los otros servicios siguen funcionando.');
-  pushBanner(ctx, `PROVIDER FAILURE · ${name} ${t('DOWN', 'CAÍDO')}`, '#f87171', `${t('It was not a threat.', 'No fue una amenaza.')} ${back}`, 3.2);
+  const down = t('DOWN', ctx.mode === 'multiRegion' ? 'CAÍDA' : 'CAÍDO'); // a region / a service
+  pushBanner(ctx, `PROVIDER FAILURE · ${name} ${down}`, '#f87171', `${t('It was not a threat.', 'No fue una amenaza.')} ${back}`, 3.2);
   discoverConcept(ctx, 'providerFailure');
 }

@@ -1,4 +1,4 @@
-import { DEFENSE_ORDER, ENEMIES, type DefenseType } from '../config';
+import { DEFENSE_ORDER, ENEMIES, PROVIDER_COLOR, type DefenseType } from '../config';
 import type { ConceptId } from '../learn/concepts';
 import { drawDefense, drawEnemy, drawRollback } from '../render/sprites';
 import { fitCanvas } from './anim';
@@ -51,7 +51,6 @@ export function drawConceptIcon(canvas: HTMLCanvasElement, id: ConceptId, size: 
  * Drawn in a box of about 84 × 84 around (0, 0).
  */
 function drawProviderFailure(g: CanvasRenderingContext2D, time: number, active: boolean): void {
-  const amber = '#fbbf24';
   const flash = (Math.sin(time * (active ? 9 : 4)) + 1) / 2;
   // three servers
   for (let i = 0; i < 3; i++) {
@@ -77,7 +76,7 @@ function drawProviderFailure(g: CanvasRenderingContext2D, time: number, active: 
   g.rect(-14, -16, 31, 11);
   g.fill();
   // lightning bolt
-  g.fillStyle = amber;
+  g.fillStyle = PROVIDER_COLOR;
   g.globalAlpha = 0.6 + flash * 0.4;
   g.beginPath();
   g.moveTo(4, -12);

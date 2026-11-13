@@ -108,10 +108,14 @@ describe('waves', () => {
     expect([1, 2, 3, 4, 5].map((n) => bf(n, 5))).toEqual([0, 0, 0, 0, 2]);
   });
 
-  it.each([8, 5])('every threat shows up in a level of %i waves', (total) => {
-    const seen = new Set<EnemyType>();
-    for (let n = 1; n <= total; n++) for (const type of buildWave(n, total).queue) seen.add(type);
-    expect([...seen].sort()).toEqual([...ENEMY_ORDER].sort());
+  it.each([8, 5])('every threat shows up in a level of %i waves, whatever the random draw', (total) => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const undo = seedRandom(seed);
+      const seen = new Set<EnemyType>();
+      for (let n = 1; n <= total; n++) for (const type of buildWave(n, total).queue) seen.add(type);
+      undo();
+      expect([...seen].sort()).toEqual([...ENEMY_ORDER].sort());
+    }
   });
 
   it('the preview counts every threat of the wave', () => {

@@ -1,4 +1,4 @@
-import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, PROVIDER_COLOR, PROVIDER_FAILURE_WAVE } from '../config';
+import { DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, MODE_ORDER, MODES, PROVIDER_COLOR, PROVIDER_FAILURE_WAVE, REGIONS } from '../config';
 import { t } from '../i18n';
 import { concept, type ConceptId } from './concepts';
 
@@ -42,7 +42,7 @@ function rollbackLevels(): string {
 
 /** The Provider failure, last in the Threats tab: it is an event, not a threat. */
 function providerEntry(): GuideEntry {
-  const levels = levelsText(levelsWhere((m) => m !== 'monolith'));
+  const levels = levelsText(levelsWhere((m) => MODES[m].providerFailure));
   return {
     id: 'providerFailure',
     kind: 'event',
@@ -50,8 +50,8 @@ function providerEntry(): GuideEntry {
     color: PROVIDER_COLOR,
     sub: `${levels.charAt(0).toUpperCase()}${levels.slice(1)} · ${t('wave', 'ola')} ${PROVIDER_FAILURE_WAVE}`,
     play: t(
-      `At the start of wave ${PROVIDER_FAILURE_WAVE}, the game takes down the lane with most defenses (eu-west, the larger region, in Multi-region), after a warning. It never takes down the last part still up.`,
-      `Al empezar la ola ${PROVIDER_FAILURE_WAVE}, el juego tumba el carril con más defensas (eu-west, la región grande, en Multi-región), tras un aviso. Nunca tumba lo último que queda en pie.`,
+      `At the start of wave ${PROVIDER_FAILURE_WAVE}, the game takes down the lane with most defenses (${REGIONS[0].name}, the larger region, in Multi-region), after a warning. It never takes down the last part still up.`,
+      `Al empezar la ola ${PROVIDER_FAILURE_WAVE}, el juego tumba el carril con más defensas (${REGIONS[0].name}, la región grande, en Multi-región), tras un aviso. Nunca tumba lo último que queda en pie.`,
     ),
   };
 }

@@ -73,6 +73,8 @@ export interface ModeSpec {
   rollback: boolean;
   /** Waves to win. Level 1 shows most concept cards, so it is longer. */
   waves: number;
+  /** The game takes part of the system down by itself at PROVIDER_FAILURE_WAVE. */
+  providerFailure: boolean;
 }
 
 // Texts are getters: they read the current language each time (see i18n.ts).
@@ -91,6 +93,7 @@ export const MODES: Record<Mode, ModeSpec> = {
     },
     rollback: false,
     waves: 8,
+    providerFailure: false,
   },
   microservices: {
     level: 2,
@@ -106,6 +109,7 @@ export const MODES: Record<Mode, ModeSpec> = {
     },
     rollback: true,
     waves: 5,
+    providerFailure: true,
   },
   kubernetes: {
     level: 3,
@@ -119,6 +123,7 @@ export const MODES: Record<Mode, ModeSpec> = {
     },
     rollback: true,
     waves: 5,
+    providerFailure: true,
   },
   multiRegion: {
     level: 4,
@@ -134,6 +139,7 @@ export const MODES: Record<Mode, ModeSpec> = {
     },
     rollback: true,
     waves: 5,
+    providerFailure: true,
   },
 };
 
