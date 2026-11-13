@@ -4,7 +4,7 @@
 - `develop` is integration. Start each change on `feature/<name>` from `develop`, in its own worktree (other sessions share the main checkout).
 - A feature goes back by Pull Request: `gh pr create --base develop`.
 - To publish, open a Pull Request from `develop` to `main` and merge it on GitHub, only when the user asks.
-- `main` is protected on GitHub (ruleset "Protect main"): only Pull Requests, the `check` and `docker` jobs must pass, no force-push, no delete. The admin can skip the checks only when merging a PR (for PRs that change no game files, where CI does not run). A local `pre-push` hook also blocks pushes to `main`.
+- `main` is protected on GitHub (ruleset "Protect main"): only Pull Requests, the `check`, `docker` and `from-develop` jobs must pass, no force-push, no delete. `from-develop` fails any PR into `main` whose source is not `develop`, and it runs on every PR. The admin can skip `check` and `docker` only when merging a PR that changes no game files (CI does not run there). A local `pre-push` hook also blocks pushes to `main`.
 - `develop` has a ruleset "Keep develop" (no delete, no force-push), because the repo deletes merged branches and the release PR merges `develop`.
 
 ## Pointers
