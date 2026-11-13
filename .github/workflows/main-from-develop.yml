@@ -1,0 +1,25 @@
+name: main-from-develop
+
+# Git Flow: main (production) only takes Pull Requests from develop.
+# A feature PR aimed at main would skip develop and leave it behind main.
+# No path filter: this job runs on every PR into main, so the ruleset can require it.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  from-develop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The source branch is develop
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$HEAD_REF" != "develop" ]; then
+            echo "::error::Pull Requests into main must come from develop (this one comes from '$HEAD_REF'). Change the base to develop."
+            exit 1
+          fi
+          echo "OK: develop -> main"

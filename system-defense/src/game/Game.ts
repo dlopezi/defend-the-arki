@@ -1,6 +1,6 @@
 import { Sfx } from '../audio/Sfx';
 import { onLangChange, t } from '../i18n';
-import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, TOTAL_WAVES, type Mode, type Tool } from '../config';
+import { CANVAS_H, CANVAS_W, DEFENSE_ORDER, DEFENSES, FIXED_DT, LANES, MODES, type Mode, type Tool } from '../config';
 import { World } from '../ecs/World';
 import { RenderSystem } from '../render/RenderSystem';
 import { Hud } from '../ui/Hud';
@@ -70,7 +70,7 @@ export class Game {
         const ctx = this.ctx;
         const spec = MODES[ctx.mode];
         const result = ctx.status === 'victory' ? 'won' : ctx.status === 'gameover' ? 'lost' : undefined;
-        return { level: `Level ${spec.level} · ${spec.name}`, wave: `${ctx.wave.number}/${TOTAL_WAVES}`, result };
+        return { level: `Level ${spec.level} · ${spec.name}`, wave: `${ctx.wave.number}/${spec.waves}`, result };
       },
     });
 

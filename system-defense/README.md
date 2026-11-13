@@ -83,8 +83,13 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
   (no el WAF), Black Friday destruye de un golpe, Botnet se divide, y la regla de Game Over de
   cada nivel (Monolito, Microservicios con Rollback, Kubernetes que se reinicia a los 30 s,
   Multi-región: cae la región entera, failover a la otra y vuelve a los 45 s; victoria).
+- **Provider failure** (`tests/provider.test.ts`): en los niveles 2–4, aviso en la pausa antes de la ola 3
+  y, al empezar la ola 3, cae el carril con más defensas (eu-west en Multi-región). Nunca tumba lo
+  último en pie y no existe en el Monolito.
+- **Récords** (`tests/records.test.ts`) y **Guía** (`tests/guide.test.ts`).
 - **Básicas** (`tests/core.test.ts`): mundo ECS, configuración, olas cada vez más difíciles,
-  Black Friday en las olas 5, 8 y 10, y que cada elemento tenga dibujo y ficha.
+  8 olas en el Nivel 1 y 5 en los demás (todas las amenazas salen en cada nivel), Black Friday
+  como jefe de la última ola (y de la ola 4 en el Nivel 1), y que cada elemento tenga dibujo y ficha.
 - **Idiomas** (`tests/i18n.test.ts`): falla si un texto en español de `src/` no está dentro de
   `t('English', 'Español')` o de una tabla en español (`const ES` o clave `es`).
 - **Partidas completas y carga** (`tests/soak.test.ts`): un bot juega 13 partidas enteras
@@ -98,7 +103,7 @@ Load Balancers, Redis, Rate Limiters, WAF, CDN y Kafka contra DDoS, bots, Zero-D
 | Prueba | Resultado |
 |---|---|
 | Pruebas automáticas | ✅ todas pasan |
-| 13 partidas completas del bot | 12 victorias, 1 derrota en la ola 10 (Monolito). Nivel 4: 4 victorias de 4; en la partida sin defender us-east, la región cayó y volvió 7 veces. 0 errores. Máx. ~330 entidades |
+| 13 partidas completas del bot | 13 victorias. Duración (tiempo de juego a ×1): Nivel 1 ~12 min (8 olas); Niveles 2–4 entre 6,5 y 10,5 min (5 olas). En todas las partidas de los niveles 2–4 cayó algo (el Provider failure como mínimo), así que la regla del nivel siempre se ve. 0 errores. Máx. ~310 entidades |
 | Motor con 500 amenazas + 45 defensas | 0,5 ms por paso de media, 0,9 ms p99 (presupuesto: 16,7 ms) |
 | Navegador con 300 amenazas + 45 defensas | 60 FPS estables, peor frame 18,7 ms |
 | Memoria en el navegador (40 s bajo carga) | estable en ~23 MB (sin fugas) |

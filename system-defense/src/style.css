@@ -214,6 +214,28 @@ body {
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
+/* Provider failure warning, next to the wave counter (break before its wave). */
+.provider-alert {
+  padding: 2px 10px;
+  font: 700 12px var(--mono);
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid #fbbf24;
+  border-radius: 999px;
+  white-space: nowrap;
+  animation: alert-blink 1s ease-in-out infinite;
+}
+.provider-alert[hidden] {
+  display: none;
+}
+@keyframes alert-blink {
+  50% {
+    opacity: 0.55;
+  }
+}
+.timeline li.provider {
+  color: #fcd34d;
+}
 .wave {
   font-weight: 700;
   white-space: nowrap;
@@ -519,6 +541,9 @@ kbd {
 }
 .concept-card.is-threat {
   border-color: #f87171;
+}
+.concept-card.is-event {
+  border-color: #fbbf24;
 }
 .concept-head {
   display: flex;
@@ -1403,6 +1428,7 @@ kbd {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .provider-alert,
   .screen-main *,
   .screen-main .logo span {
     animation: none !important;

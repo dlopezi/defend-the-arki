@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { COLS, DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, LANES, MODE_ORDER, TOTAL_WAVES, type EnemyType } from '../src/config';
+import { COLS, DEFENSE_ORDER, DEFENSES, ENEMIES, ENEMY_ORDER, LANES, MODE_ORDER, MODES, type EnemyType } from '../src/config';
 import { World } from '../src/ecs/World';
 import { buildWave, countByType } from '../src/game/waves';
 import { CONCEPT_TABLES, type ConceptId } from '../src/learn/concepts';
@@ -83,11 +83,15 @@ describe('waves', () => {
   });
   afterEach(() => restore());
 
-  it('get bigger and harder every wave', () => {
+  it('Level 1 has 8 waves; levels 2 to 4 have 5 (they only add their rule)', () => {
+    expect(MODE_ORDER.map((m) => MODES[m].waves)).toEqual([8, 5, 5, 5]);
+  });
+
+  it.each([8, 5])('get bigger and harder every wave (%i waves)', (total) => {
     let prevCount = 0;
     let prevHp = 0;
-    for (let n = 1; n <= TOTAL_WAVES; n++) {
-      const w = buildWave(n);
+    for (let n = 1; n <= total; n++) {
+      const w = buildWave(n, total);
       expect(w.queue.length).toBeGreaterThan(prevCount);
       expect(w.hpScale).toBeGreaterThan(prevHp);
       expect(w.interval).toBeGreaterThan(0);
@@ -98,13 +102,24 @@ describe('waves', () => {
     }
   });
 
-  it('Black Friday comes in waves 5, 8 and 10 (twice in the last one)', () => {
-    const bf = (n: number) => buildWave(n).queue.filter((t) => t === 'blackFriday').length;
-    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(bf)).toEqual([0, 0, 0, 0, 1, 0, 0, 1, 0, 2]);
+  it('Black Friday: in level 1 at waves 4 and 8 (twice in the last); in a 5-wave level only as the final boss', () => {
+    const bf = (n: number, total: number) => buildWave(n, total).queue.filter((t) => t === 'blackFriday').length;
+    expect([1, 2, 3, 4, 5, 6, 7, 8].map((n) => bf(n, 8))).toEqual([0, 0, 0, 1, 0, 0, 0, 2]);
+    expect([1, 2, 3, 4, 5].map((n) => bf(n, 5))).toEqual([0, 0, 0, 0, 2]);
+  });
+
+  it.each([8, 5])('every threat shows up in a level of %i waves, whatever the random draw', (total) => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const undo = seedRandom(seed);
+      const seen = new Set<EnemyType>();
+      for (let n = 1; n <= total; n++) for (const type of buildWave(n, total).queue) seen.add(type);
+      undo();
+      expect([...seen].sort()).toEqual([...ENEMY_ORDER].sort());
+    }
   });
 
   it('the preview counts every threat of the wave', () => {
-    const w = buildWave(9);
+    const w = buildWave(4, 5);
     const total = countByType(w.queue).reduce((s, c) => s + c.count, 0);
     expect(total).toBe(w.queue.length);
   });

@@ -17,21 +17,39 @@ function empty(): Records {
   return r;
 }
 
-/** Best results per level, kept in this browser only. */
-export function loadRecords(): Records {
+/**
+ * Format of the saved records. Version 2 came with the shorter levels (8 and 5 waves):
+ * older best waves and kills are not comparable, so only "won" is kept from them.
+ */
+const VERSION = 2;
+
+/** Reads saved records (null: nothing saved). Broken data gives empty records. */
+export function parseRecords(raw: string | null): Records {
   const base = empty();
+  if (!raw) return base;
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return base;
-    const data = JSON.parse(raw) as Partial<Records>;
+    const data = JSON.parse(raw) as Partial<Records> & { version?: number };
+    const current = data.version === VERSION;
     for (const m of MODE_ORDER) {
       const r = data[m];
-      if (r) base[m] = { bestWave: Number(r.bestWave) || 0, won: Boolean(r.won), bestKills: Number(r.bestKills) || 0 };
+      if (!r) continue;
+      base[m] = current
+        ? { bestWave: Number(r.bestWave) || 0, won: Boolean(r.won), bestKills: Number(r.bestKills) || 0 }
+        : { bestWave: 0, won: Boolean(r.won), bestKills: 0 };
     }
   } catch {
-    /* storage blocked or corrupt: start empty */
+    /* corrupt: start empty */
   }
   return base;
+}
+
+/** Best results per level, kept in this browser only. */
+export function loadRecords(): Records {
+  try {
+    return parseRecords(localStorage.getItem(KEY));
+  } catch {
+    return empty(); // storage blocked
+  }
 }
 
 /** Saves a finished game. Returns true if it beat the previous record. */
@@ -42,7 +60,7 @@ export function saveResult(mode: Mode, wave: number, won: boolean, kills: number
   if (better) {
     all[mode] = { bestWave: Math.max(wave, prev.bestWave), won: won || prev.won, bestKills: Math.max(kills, prev.bestKills) };
     try {
-      localStorage.setItem(KEY, JSON.stringify(all));
+      localStorage.setItem(KEY, JSON.stringify({ version: VERSION, ...all }));
     } catch {
       /* ignore */
     }

@@ -27,6 +27,21 @@ function takeLaneDown(world: World, ctx: GameContext, lane: number): void {
 }
 
 /**
+ * Takes `lanes` down with their defenses, and starts their comeback in the levels that
+ * self-heal. Used by breaches and by the Provider failure.
+ */
+export function bringDown(world: World, ctx: GameContext, lanes: number[]): void {
+  for (const l of lanes) {
+    takeLaneDown(world, ctx, l);
+    spawnEffect(world, 'explosion', BASE_W / 2, laneY(l), '#ef4444', { size: 120, duration: 0.9 });
+    spawnSparks(world, BASE_W / 2, laneY(l), '#ef4444', 24, 260);
+    if (ctx.mode === 'kubernetes') ctx.laneRestart[l] = POD_RESTART_TIME;
+    if (ctx.mode === 'multiRegion') ctx.laneRestart[l] = REGION_RECOVERY_TIME;
+  }
+  ctx.shake = Math.max(ctx.shake, lanes.length > 1 ? 18 : 14);
+}
+
+/**
  * The architecture rule lives here.
  * - Monolith: any breach in any lane = the whole system goes down.
  * - Microservices: a breach only kills that lane's service; game over when all 5 are down.
@@ -45,7 +60,7 @@ export const BreachSystem: System = {
       const type = world.req(e, 'enemy').type;
       const name = ENEMIES[type].name;
       if (ctx.lanesAlive[lane]) {
-        ctx.incidents.push({ wave: ctx.wave.number, lane, enemy: type, cause: diagnose(world, ctx, lane, e), time: ctx.time });
+        ctx.incidents.push({ kind: 'breach', wave: ctx.wave.number, lane, enemy: type, cause: diagnose(world, ctx, lane, e), time: ctx.time });
       }
 
       if (ctx.mode === 'monolith') {
@@ -68,16 +83,9 @@ export const BreachSystem: System = {
       }
       // Multi-region: the whole region of the lane falls, not only the lane.
       const region = ctx.mode === 'multiRegion' ? regionOf(lane) : null;
-      for (const l of region ? region.lanes : [lane]) {
-        takeLaneDown(world, ctx, l);
-        spawnEffect(world, 'explosion', BASE_W / 2, laneY(l), '#ef4444', { size: 120, duration: 0.9 });
-        spawnSparks(world, BASE_W / 2, laneY(l), '#ef4444', 24, 260);
-      }
-      ctx.shake = Math.max(ctx.shake, region ? 18 : 14);
+      bringDown(world, ctx, region ? region.lanes : [lane]);
 
       const k8s = ctx.mode === 'kubernetes';
-      if (k8s) ctx.laneRestart[lane] = POD_RESTART_TIME;
-      if (region) for (const l of region.lanes) ctx.laneRestart[l] = REGION_RECOVERY_TIME;
       const alive = ctx.lanesAlive.filter(Boolean).length;
       if (alive === 0) {
         ctx.status = 'gameover';
